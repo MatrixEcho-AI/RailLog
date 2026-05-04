@@ -1,21 +1,33 @@
-//
-//  ContentView.swift
-//  RailLog
-//
-//  Created by MikeWu597 on 2026/5/5.
-//
-
 import SwiftUI
 
 struct ContentView: View {
+    @State private var store = DataStore()
+    @State private var selectedTab = 0
+
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        TabView(selection: $selectedTab) {
+            LogListView()
+                .tabItem {
+                    Image(systemName: "book.pages")
+                    Text("日志")
+                }
+                .tag(0)
+
+            AddView()
+                .tabItem {
+                    Image(systemName: "plus.circle")
+                    Text("+")
+                }
+                .tag(1)
+
+            AboutView()
+                .tabItem {
+                    Image(systemName: "info.circle")
+                    Text("关于")
+                }
+                .tag(2)
         }
-        .padding()
+        .environment(store)
     }
 }
 
