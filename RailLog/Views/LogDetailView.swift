@@ -5,14 +5,46 @@ struct LogDetailView: View {
     @State var log: TripLog
     @State private var showEdit = false
     @State private var showDeleteConfirm = false
+    @State private var showTrainLogs = false
+    @State private var showEMULogs = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         List {
             // 车次信息
             Section("列车信息") {
-                DetailRow(label: "车次", value: log.trainNumber)
-                DetailRow(label: "动车组", value: log.emuNumber)
+                if !log.trainNumber.isEmpty {
+                    Button {
+                        showTrainLogs = true
+                    } label: {
+                        HStack {
+                            Text("车次")
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Text(log.trainNumber)
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+                if !log.emuNumber.isEmpty {
+                    Button {
+                        showEMULogs = true
+                    } label: {
+                        HStack {
+                            Text("动车组")
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Text(log.emuNumber)
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
                 if !log.carriage.isEmpty || !log.seat.isEmpty {
                     DetailRow(label: "座位", value: "\(log.carriage)车 \(log.seat)")
                 }
@@ -73,6 +105,12 @@ struct LogDetailView: View {
             let title = log.trainNumber.isEmpty ? log.emuNumber : log.trainNumber
             Text("「\(title)」将被永久删除，不可恢复。")
         }
+        .sheet(isPresented: $showTrainLogs) {
+            MatchingLogsSheet(title: "车次 \(log.trainNumber)", logs: store.logs.filter { $0.trainNumber == log.trainNumber })
+        }
+        .sheet(isPresented: $showEMULogs) {
+            MatchingLogsSheet(title: "动车组 \(log.emuNumber)", logs: store.logs.filter { $0.emuNumber == log.emuNumber })
+        }
     }
 }
 
@@ -87,6 +125,34 @@ struct DetailRow: View {
                     .foregroundStyle(.secondary)
                 Spacer()
                 Text(value)
+            }
+        }
+    }
+}
+
+private struct MatchingLogsSheet: View {
+    @Environment(DataStore.self) private var store
+    @Environment(\.dismiss) private var dismiss
+    let title: String
+    let logs: [TripLog]
+
+    var body: some View {
+        NavigationStack {
+            List {
+                ForEach(logs) { log in
+                    NavigationLink {
+                        LogDetailView(log: log)
+                    } label: {
+                        LogRow(log: log, preferTrainNumber: store.preferTrainNumber)
+                    }
+                }
+            }
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("关闭") { dismiss() }
+                }
             }
         }
     }
