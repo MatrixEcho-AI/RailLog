@@ -40,11 +40,13 @@ struct LogDetailView: View {
             }
 
             // 运转详情
-            Section("运转详情") {
-                DetailRow(label: "运转里程", value: log.mileage.isEmpty ? "-" : "\(log.mileage) km")
-                DetailRow(label: "最高时速", value: log.maxSpeed.isEmpty ? "-" : "\(log.maxSpeed) km/h")
-                DetailRow(label: "担当路局", value: log.bureau)
-                DetailRow(label: "担当段", value: log.depot)
+            if !log.mileage.isEmpty || !log.maxSpeed.isEmpty || !log.bureau.isEmpty || !log.depot.isEmpty {
+                Section("运转详情") {
+                    DetailRow(label: "运转里程", value: log.mileage.isEmpty ? "-" : "\(log.mileage) km")
+                    DetailRow(label: "最高时速", value: log.maxSpeed.isEmpty ? "-" : "\(log.maxSpeed) km/h")
+                    DetailRow(label: "担当路局", value: log.bureau)
+                    DetailRow(label: "担当段", value: log.depot)
+                }
             }
 
             // 操作
