@@ -4,7 +4,6 @@ struct TripEditView: View {
     @Environment(DataStore.self) private var store
     @Environment(\.dismiss) private var dismiss
 
-    // 可通过草稿或已有日志初始化
     init(draft: TripLog) {
         _log = State(initialValue: draft)
         _isDraftMode = State(initialValue: draft.isDraft)
@@ -20,13 +19,52 @@ struct TripEditView: View {
     @State private var selectedBureau: String = ""
     @State private var showSaveAlert = false
     @State private var saveAlertMessage = ""
+    @State private var showExtraStations = false
+
+    private var now: Date { Date() }
+    private let maxTripDuration: TimeInterval = 48 * 3600
+
+    private var canEditStationTime: Bool { isDraftMode }
 
     private var canSaveAsDraft: Bool {
         !log.departureStation.isEmpty && !log.arrivalStation.isEmpty
     }
 
     private var canFinalize: Bool {
-        canSaveAsDraft && log.departureTime != nil && log.arrivalTime != nil
+        guard canSaveAsDraft else { return false }
+        guard log.departureTime != nil, log.arrivalTime != nil else { return false }
+        guard let dep = log.departureTime, dep <= now else { return false }
+        return true
+    }
+
+    // 始发 <= 出发 < now
+    private var originRange: ClosedRange<Date> {
+        let upper = log.departureTime ?? now
+        return Date.distantPast ... upper
+    }
+
+    private var departureRange: ClosedRange<Date> {
+        let lower = log.originTime ?? Date.distantPast
+        return lower ... now
+    }
+
+    // 出发 <= 到达 <= 终到; 到达 <= 出发 + 48h
+    private var arrivalRange: ClosedRange<Date> {
+        let lower = log.departureTime ?? Date.distantPast
+        var upper = log.destinationTime ?? Date.distantFuture
+        if let dep = log.departureTime {
+            upper = min(upper, dep.addingTimeInterval(maxTripDuration))
+        }
+        return lower ... max(lower, upper)
+    }
+
+    private var destinationRange: ClosedRange<Date> {
+        let lower = log.arrivalTime ?? log.departureTime ?? Date.distantPast
+        var upper = Date.distantFuture
+        if let dep = log.departureTime {
+            upper = dep.addingTimeInterval(maxTripDuration)
+        }
+        return lower ... max(lower, upper)
     }
 
     private var depotsForSelectedBureau: [String] {
@@ -94,38 +132,60 @@ struct TripEditView: View {
 
             // MARK: - 站点与时间
             Section {
-                StationTimeRow(
-                    label: "始发站",
-                    station: $log.originStation,
-                    time: $log.originTime,
-                    required: false
-                )
-                .listRowBackground(Color.clear)
+                if showExtraStations {
+                    StationTimeRow(
+                        label: "始发站",
+                        station: $log.originStation,
+                        time: $log.originTime,
+                        dateRange: originRange,
+                        editable: canEditStationTime
+                    )
+                }
 
                 StationTimeRow(
                     label: "出发站",
                     station: $log.departureStation,
                     time: $log.departureTime,
-                    required: true
+                    dateRange: departureRange,
+                    editable: canEditStationTime
                 )
 
                 StationTimeRow(
                     label: "到达站",
                     station: $log.arrivalStation,
                     time: $log.arrivalTime,
-                    required: true
+                    dateRange: arrivalRange,
+                    editable: canEditStationTime
                 )
 
-                StationTimeRow(
-                    label: "终到站",
-                    station: $log.destinationStation,
-                    time: $log.destinationTime,
-                    required: false
-                )
+                if showExtraStations {
+                    StationTimeRow(
+                        label: "终到站",
+                        station: $log.destinationStation,
+                        time: $log.destinationTime,
+                        dateRange: destinationRange,
+                        editable: canEditStationTime
+                    )
+                }
+
+                if canEditStationTime {
+                    Button {
+                        if showExtraStations {
+                            log.originStation = ""
+                            log.originTime = nil
+                            log.destinationStation = ""
+                            log.destinationTime = nil
+                        }
+                        withAnimation { showExtraStations.toggle() }
+                    } label: {
+                        Label(showExtraStations ? "收起始发/终到" : "添加始发/终到", systemImage: showExtraStations ? "minus.circle" : "plus.circle")
+                            .font(.subheadline)
+                    }
+                    .buttonStyle(.borderless)
+                }
             } header: {
                 Text("站点与时间")
             } footer: {
-                // 运转时长
                 let duration = log.durationFormatted
                 if !duration.isEmpty {
                     HStack {
@@ -151,8 +211,12 @@ struct TripEditView: View {
                             showSaveAlert = true
                         }
                     } label: {
-                        Label("保存草稿", systemImage: "doc.badge.ellipsis")
-                            .frame(maxWidth: .infinity)
+                        HStack {
+                            Image(systemName: "doc.badge.ellipsis")
+                            Text("保存草稿")
+                        }
+                        .frame(maxWidth: .infinity)
+                        .foregroundStyle(canSaveAsDraft ? .blue : .secondary)
                     }
                     .disabled(!canSaveAsDraft)
 
@@ -161,12 +225,16 @@ struct TripEditView: View {
                             store.finalizeDraft(log)
                             dismiss()
                         } else {
-                            saveAlertMessage = "完成运转需要至少填写出发站、到达站及其时间"
+                            saveAlertMessage = "需要出发站/到达站及其时间，且出发时间须在当下之前"
                             showSaveAlert = true
                         }
                     } label: {
-                        Label("完成运转", systemImage: "checkmark.circle.fill")
-                            .frame(maxWidth: .infinity)
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                            Text("完成运转")
+                        }
+                        .frame(maxWidth: .infinity)
+                        .foregroundStyle(canFinalize ? .blue : .secondary)
                     }
                     .disabled(!canFinalize)
                 } else {
@@ -179,8 +247,12 @@ struct TripEditView: View {
                             showSaveAlert = true
                         }
                     } label: {
-                        Label("保存修改", systemImage: "checkmark.circle.fill")
-                            .frame(maxWidth: .infinity)
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                            Text("保存修改")
+                        }
+                        .frame(maxWidth: .infinity)
+                        .foregroundStyle(canSaveAsDraft ? .blue : .secondary)
                     }
                     .disabled(!canSaveAsDraft)
                 }
@@ -200,6 +272,7 @@ struct TripEditView: View {
         }
         .onAppear {
             selectedBureau = log.bureau
+            showExtraStations = !log.originStation.isEmpty || !log.destinationStation.isEmpty || log.originTime != nil || log.destinationTime != nil
         }
     }
 }
@@ -210,7 +283,8 @@ private struct StationTimeRow: View {
     let label: String
     @Binding var station: String
     @Binding var time: Date?
-    let required: Bool
+    let dateRange: ClosedRange<Date>
+    let editable: Bool
 
     @State private var showStationPicker = false
     @State private var pickerDate: Date = Date()
@@ -218,41 +292,51 @@ private struct StationTimeRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                if required {
-                    Text("*")
-                        .foregroundStyle(.red)
-                        .font(.caption)
-                }
                 Text(label)
                     .font(.subheadline.bold())
-                    .foregroundStyle(required ? .primary : .secondary)
 
                 Spacer()
 
                 Button {
-                    showStationPicker = true
+                    if editable { showStationPicker = true }
                 } label: {
                     HStack {
                         Text(station.isEmpty ? "选择车站" : station)
                             .foregroundStyle(station.isEmpty ? .secondary : .primary)
-                        Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        if editable {
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                 }
+                .disabled(!editable)
             }
 
-            DatePicker("时间", selection: $pickerDate, displayedComponents: [.date, .hourAndMinute])
+            DatePicker("时间", selection: $pickerDate, in: dateRange, displayedComponents: [.date, .hourAndMinute])
                 .labelsHidden()
-                .disabled(station.isEmpty)
+                .disabled(!editable || station.isEmpty)
+                .onAppear {
+                    if let t = time {
+                        pickerDate = t
+                    } else {
+                        // 确保初始值在范围内
+                        pickerDate = min(max(pickerDate, dateRange.lowerBound), dateRange.upperBound)
+                    }
+                }
                 .onChange(of: pickerDate) { _, newValue in
                     time = newValue
                 }
-                .onAppear {
-                    if let t = time { pickerDate = t }
-                }
                 .onChange(of: time) { _, newValue in
                     if let t = newValue { pickerDate = t }
+                }
+                .onChange(of: station) { _, newValue in
+                    // 用户选择了车站但尚未设时间时，自动填入当前选择器值
+                    if !newValue.isEmpty && time == nil {
+                        let clamped = min(max(pickerDate, dateRange.lowerBound), dateRange.upperBound)
+                        pickerDate = clamped
+                        time = clamped
+                    }
                 }
         }
         .sheet(isPresented: $showStationPicker) {

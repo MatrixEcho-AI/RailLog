@@ -5,6 +5,7 @@ struct LogListView: View {
     @State private var searchText = ""
     @State private var filterBureau: String = "全部"
     @State private var sortOrder: SortOrder = .newest
+    @State private var deleteTarget: TripLog?
 
     enum SortOrder: String, CaseIterable, Identifiable {
         case newest = "最新优先"
@@ -89,9 +90,7 @@ struct LogListView: View {
                             }
                         }
                         .onDelete { offsets in
-                            for idx in offsets {
-                                store.deleteLog(filteredLogs[idx])
-                            }
+                            if let idx = offsets.first { deleteTarget = filteredLogs[idx] }
                         }
                     }
                     .listStyle(.plain)
@@ -99,6 +98,21 @@ struct LogListView: View {
             }
             .navigationTitle("运转日志")
             .searchable(text: $searchText, prompt: "搜索车次、车站...")
+            .alert("删除运转日志", isPresented: Binding(
+                get: { deleteTarget != nil },
+                set: { if !$0 { deleteTarget = nil } }
+            )) {
+                Button("取消", role: .cancel) { deleteTarget = nil }
+                Button("确定删除", role: .destructive) {
+                    if let log = deleteTarget { store.deleteLog(log) }
+                    deleteTarget = nil
+                }
+            } message: {
+                if let log = deleteTarget {
+                    let title = log.trainNumber.isEmpty ? log.emuNumber : log.trainNumber
+                    Text("「\(title)」将被永久删除，不可恢复。")
+                }
+            }
         }
     }
 }
