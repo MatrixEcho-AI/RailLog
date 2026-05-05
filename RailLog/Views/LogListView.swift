@@ -160,9 +160,6 @@ struct LogRow: View {
             }
 
             HStack {
-                Image(systemName: "arrow.right")
-                    .font(.caption)
-                    .foregroundStyle(.blue)
                 Text(log.departureStation)
                     .font(.subheadline)
                 Text("→")
