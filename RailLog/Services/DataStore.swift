@@ -5,6 +5,11 @@ import SwiftUI
 final class DataStore {
     private(set) var logs: [TripLog] = []
     private(set) var drafts: [TripLog] = []
+    let bundleService = DataBundleService.shared
+
+    var stations: [RailwayStation] { bundleService.stations }
+    var models: [TrainModel] { bundleService.models }
+    var dataUpdateTime: Date? { bundleService.stationsUpdateDate }
 
     /// true = 主项显示车次, false = 主项显示动车组编号
     var preferTrainNumber: Bool {
@@ -167,23 +172,7 @@ final class DataStore {
 
     // MARK: - 数据更新
 
-    var dataUpdateTime: Date? {
-        get {
-            let interval = UserDefaults.standard.double(forKey: "dataUpdateTime_\(currentDomainID)")
-            guard interval > 0 else { return nil }
-            return Date(timeIntervalSince1970: interval)
-        }
-        set {
-            if let date = newValue {
-                UserDefaults.standard.set(date.timeIntervalSince1970, forKey: "dataUpdateTime_\(currentDomainID)")
-            } else {
-                UserDefaults.standard.removeObject(forKey: "dataUpdateTime_\(currentDomainID)")
-            }
-        }
-    }
-
     func refreshBundleData() async {
-        // TODO: 对接 API 更新车站列表、车型列表等
-        dataUpdateTime = Date()
+        await bundleService.refreshAll()
     }
 }

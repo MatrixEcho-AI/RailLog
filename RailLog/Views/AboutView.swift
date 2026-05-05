@@ -56,7 +56,7 @@ struct AboutView: View {
 
     private var updateTimeString: String {
         if let t = store.dataUpdateTime {
-            return t.formatted(date: .numeric, time: .shortened)
+            return t.formatted(date: .numeric, time: .omitted)
         }
         return "未更新"
     }
@@ -155,7 +155,7 @@ struct AboutView: View {
                     }
                     .disabled(refreshing)
                 } footer: {
-                    Text("数据包包含车站列表、车型字典、路局与段信息等基础数据。")
+                    Text("数据包包含车站列表、车型字典、路局与段信息等基础数据。车站数据来自 [rail.re](https://rail.re)，车型数据来自 [china-emu.cn](https://www.china-emu.cn)。")
                 }
 
                 // 意见和建议
