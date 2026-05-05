@@ -18,6 +18,15 @@ struct DomainSettingsView: View {
                 } header: {
                     Text(store.currentDomain.name)
                 }
+
+                Section {
+                    Button {
+                        store.triggerSafetyRelearn(for: store.currentDomainID)
+                        dismiss()
+                    } label: {
+                        Label("重新学习安全教育", systemImage: "hand.raised.fill")
+                    }
+                }
             }
             .navigationTitle("域设置")
             .navigationBarTitleDisplayMode(.inline)

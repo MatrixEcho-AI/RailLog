@@ -39,6 +39,13 @@ final class DataStore {
         completedSafetyEducationIDs.insert(domainID)
     }
 
+    private(set) var safetyRelearnToken = 0
+
+    func triggerSafetyRelearn(for domainID: String) {
+        completedSafetyEducationIDs.remove(domainID)
+        safetyRelearnToken &+= 1
+    }
+
     private var completedSafetyEducationIDs: Set<String> {
         get {
             let ids = UserDefaults.standard.stringArray(forKey: "safetyEducationCompleted") ?? []

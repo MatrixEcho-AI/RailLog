@@ -64,34 +64,6 @@ struct AboutView: View {
     var body: some View {
         NavigationStack {
             List {
-                // 数据更新
-                Section {
-                    HStack {
-                        Label("数据更新时间", systemImage: "clock")
-                            .font(.subheadline)
-                        Spacer()
-                        if refreshing {
-                            ProgressView()
-                                .scaleEffect(0.6)
-                        } else {
-                            Text(updateTimeString)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    Button {
-                        refreshing = true
-                        Task {
-                            await store.refreshBundleData()
-                            refreshing = false
-                        }
-                    } label: {
-                        Label("刷新数据", systemImage: "arrow.triangle.2.circlepath")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .disabled(refreshing)
-                }
-
                 // 运转统计
                 Section {
                     HStack {
@@ -154,6 +126,36 @@ struct AboutView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
+                }
+
+                // 数据包更新
+                Section {
+                    HStack {
+                        Text("数据包更新时间")
+                            .font(.subheadline)
+                        Spacer()
+                        if refreshing {
+                            ProgressView()
+                                .scaleEffect(0.6)
+                        } else {
+                            Text(updateTimeString)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Button {
+                        refreshing = true
+                        Task {
+                            await store.refreshBundleData()
+                            refreshing = false
+                        }
+                    } label: {
+                        Label("刷新数据包", systemImage: "arrow.triangle.2.circlepath")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .disabled(refreshing)
+                } footer: {
+                    Text("数据包包含车站列表、车型字典、路局与段信息等基础数据。")
                 }
 
                 // 意见和建议

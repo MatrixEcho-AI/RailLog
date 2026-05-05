@@ -41,6 +41,9 @@ struct ContentView: View {
         .onChange(of: store.currentDomainID) { _, newID in
             showSafetyEducation = store.needsSafetyEducation(for: newID)
         }
+        .onChange(of: store.safetyRelearnToken) {
+            showSafetyEducation = store.needsSafetyEducation(for: store.currentDomainID)
+        }
     }
 }
 
