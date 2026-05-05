@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct AboutView: View {
+    @Environment(DataStore.self) private var store
+
     var body: some View {
         NavigationStack {
             List {
@@ -23,23 +25,14 @@ struct AboutView: View {
                     }
                 }
 
-                Section("功能说明") {
-                    Label("扫描铁路畅行码，快速录入车次座位", systemImage: "qrcode.viewfinder")
-                    Label("记录运转里程、时速、站点、时间", systemImage: "pencil.and.list.clipboard")
-                    Label("按路局、车次、站点查询历史运转", systemImage: "magnifyingglass")
-                    Label("自动计算运转时长", systemImage: "clock.arrow.2.circlepath")
-                }
-
-                Section("数据来源") {
-                    Text("车型、路局、车站数据来源于国铁集团公开信息，后续将通过在线更新方式进行维护。")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-
-                Section("关于开发者") {
-                    Text("RailLog 由铁路爱好者社区维护开发，旨在为广大车迷提供专业、便捷的运转记录工具。\n\n如有问题或建议，欢迎反馈。")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                Section("设置") {
+                    Picker("主项", selection: Binding(
+                        get: { store.preferTrainNumber },
+                        set: { store.preferTrainNumber = $0 }
+                    )) {
+                        Text("车次").tag(true)
+                        Text("动车组编号").tag(false)
+                    }
                 }
             }
             .navigationTitle("关于")
@@ -49,4 +42,5 @@ struct AboutView: View {
 
 #Preview {
     AboutView()
+        .environment(DataStore())
 }

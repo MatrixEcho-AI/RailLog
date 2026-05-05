@@ -40,12 +40,6 @@ struct AddView: View {
                 }
 
                 Spacer()
-
-                Text("扫描车厢内的铁路畅行码，自动获取车次和座位信息")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal)
             }
             .navigationTitle("新运转")
             .sheet(isPresented: $showScanner) {

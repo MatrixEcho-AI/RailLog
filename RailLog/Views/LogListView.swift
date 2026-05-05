@@ -85,7 +85,7 @@ struct LogListView: View {
                             NavigationLink {
                                 LogDetailView(log: log)
                             } label: {
-                                LogRow(log: log)
+                                LogRow(log: log, preferTrainNumber: store.preferTrainNumber)
                             }
                         }
                         .onDelete { offsets in
@@ -105,11 +105,28 @@ struct LogListView: View {
 
 struct LogRow: View {
     let log: TripLog
+    let preferTrainNumber: Bool
+
+    private var primaryText: String {
+        if preferTrainNumber {
+            return log.trainNumber.isEmpty ? log.emuNumber : log.trainNumber
+        } else {
+            return log.emuNumber.isEmpty ? log.trainNumber : log.emuNumber
+        }
+    }
+
+    private var secondaryText: String? {
+        if preferTrainNumber {
+            return log.emuNumber.isEmpty || log.trainNumber.isEmpty ? nil : log.emuNumber
+        } else {
+            return log.trainNumber.isEmpty || log.emuNumber.isEmpty ? nil : log.trainNumber
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text(log.trainNumber.isEmpty ? log.emuNumber : log.trainNumber)
+                Text(primaryText)
                     .font(.headline)
                 if !log.carriage.isEmpty || !log.seat.isEmpty {
                     Text("\(log.carriage)车\(log.seat)")
@@ -122,8 +139,8 @@ struct LogRow: View {
                     .foregroundStyle(.secondary)
             }
 
-            if !log.trainNumber.isEmpty && !log.emuNumber.isEmpty {
-                Text(log.emuNumber)
+            if let secondary = secondaryText {
+                Text(secondary)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

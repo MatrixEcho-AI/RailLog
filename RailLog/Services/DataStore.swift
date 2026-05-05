@@ -6,6 +6,16 @@ final class DataStore {
     private(set) var logs: [TripLog] = []
     private(set) var drafts: [TripLog] = []
 
+    /// true = 主项显示车次, false = 主项显示动车组编号
+    var preferTrainNumber: Bool {
+        get { access(keyPath: \.preferTrainNumber); return UserDefaults.standard.bool(forKey: "preferTrainNumber") }
+        set {
+            withMutation(keyPath: \.preferTrainNumber) {
+                UserDefaults.standard.set(newValue, forKey: "preferTrainNumber")
+            }
+        }
+    }
+
     private let logsURL: URL
     private let draftsURL: URL
 

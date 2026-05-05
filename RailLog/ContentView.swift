@@ -15,7 +15,7 @@ struct ContentView: View {
 
             AddView()
                 .tabItem {
-                    Image(systemName: "plus.circle")
+                    Image(uiImage: UIImage(systemName: "plus.circle.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 36, weight: .regular))!)
                 }
                 .tag(1)
 
