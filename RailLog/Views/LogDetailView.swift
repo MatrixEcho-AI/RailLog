@@ -11,6 +11,7 @@ struct LogDetailView: View {
             // 车次信息
             Section("列车信息") {
                 DetailRow(label: "车次", value: log.trainNumber)
+                DetailRow(label: "动车组", value: log.emuNumber)
                 if !log.carriage.isEmpty || !log.seat.isEmpty {
                     DetailRow(label: "座位", value: "\(log.carriage)车 \(log.seat)")
                 }
@@ -82,7 +83,8 @@ struct DetailRow: View {
 #Preview {
     NavigationStack {
         LogDetailView(log: TripLog(
-            trainNumber: "CR400AF-2186",
+            trainNumber: "G81",
+            emuNumber: "CR400AF-2186",
             carriage: "04", seat: "05C",
             bureau: "北京局", depot: "北京动车段",
             departureStation: "北京南", arrivalStation: "上海虹桥"

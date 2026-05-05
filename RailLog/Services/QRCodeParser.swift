@@ -1,7 +1,7 @@
 import Foundation
 
 struct ScannedTripData {
-    let trainNumber: String   // e.g. CR400AF-2186
+    let emuNumber: String     // e.g. CR400AF-2186
     let carriage: String      // e.g. 04
     let seat: String          // e.g. 05C
 }
@@ -21,11 +21,11 @@ enum QRCodeParser {
         // e.g. CR400AF-2186-04-05C → ["CR400AF", "2186", "04", "05C"]
         guard parts.count >= 4 else { return nil }
 
-        let trainNumber = "\(parts[0])-\(parts[1])"
+        let emuNumber = "\(parts[0])-\(parts[1])"
         let carriage = String(parts[2])
         let seat = String(parts[3])
 
-        return ScannedTripData(trainNumber: trainNumber, carriage: carriage, seat: seat)
+        return ScannedTripData(emuNumber: emuNumber, carriage: carriage, seat: seat)
     }
 
     /// 尝试从字符串中提取列车信息（支持部分匹配）
@@ -44,7 +44,7 @@ enum QRCodeParser {
         }
 
         return ScannedTripData(
-            trainNumber: String(text[trainRange]),
+            emuNumber: String(text[trainRange]),
             carriage: String(text[carRange]),
             seat: String(text[seatRange])
         )

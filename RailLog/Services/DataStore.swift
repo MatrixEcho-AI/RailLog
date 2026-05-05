@@ -20,7 +20,7 @@ final class DataStore {
 
     func createDraft(from scan: ScannedTripData) -> TripLog {
         var draft = TripLog()
-        draft.trainNumber = scan.trainNumber
+        draft.emuNumber = scan.emuNumber
         draft.carriage = scan.carriage
         draft.seat = scan.seat
         draft.isDraft = true

@@ -82,8 +82,8 @@ struct DraftPickerView: View {
                     } label: {
                         VStack(alignment: .leading, spacing: 4) {
                             HStack {
-                                if !draft.trainNumber.isEmpty {
-                                    Text(draft.trainNumber)
+                                if !draft.trainNumber.isEmpty || !draft.emuNumber.isEmpty {
+                                    Text(draft.trainNumber.isEmpty ? draft.emuNumber : draft.trainNumber)
                                         .font(.headline)
                                 } else {
                                     Text("空草稿")

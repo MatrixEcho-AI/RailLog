@@ -16,7 +16,6 @@ struct ContentView: View {
             AddView()
                 .tabItem {
                     Image(systemName: "plus.circle")
-                    Text("+")
                 }
                 .tag(1)
 

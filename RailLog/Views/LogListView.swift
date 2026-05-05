@@ -20,6 +20,7 @@ struct LogListView: View {
         if !searchText.isEmpty {
             result = result.filter {
                 $0.trainNumber.localizedCaseInsensitiveContains(searchText) ||
+                $0.emuNumber.localizedCaseInsensitiveContains(searchText) ||
                 $0.departureStation.localizedCaseInsensitiveContains(searchText) ||
                 $0.arrivalStation.localizedCaseInsensitiveContains(searchText) ||
                 $0.bureau.localizedCaseInsensitiveContains(searchText) ||
@@ -108,7 +109,7 @@ struct LogRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text(log.trainNumber)
+                Text(log.trainNumber.isEmpty ? log.emuNumber : log.trainNumber)
                     .font(.headline)
                 if !log.carriage.isEmpty || !log.seat.isEmpty {
                     Text("\(log.carriage)车\(log.seat)")
@@ -117,6 +118,12 @@ struct LogRow: View {
                 }
                 Spacer()
                 Text(log.createdAt, style: .date)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            if !log.trainNumber.isEmpty && !log.emuNumber.isEmpty {
+                Text(log.emuNumber)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

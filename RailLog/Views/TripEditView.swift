@@ -38,7 +38,11 @@ struct TripEditView: View {
             // MARK: - 车次信息
             Section("车次信息") {
                 LabeledContent("车次") {
-                    TextField("e.g. CR400AF-2186", text: $log.trainNumber)
+                    TextField("e.g. G81", text: $log.trainNumber)
+                        .multilineTextAlignment(.trailing)
+                }
+                LabeledContent("动车组编号") {
+                    TextField("e.g. CR400AF-2186", text: $log.emuNumber)
                         .multilineTextAlignment(.trailing)
                 }
                 LabeledContent("车厢") {
@@ -209,6 +213,7 @@ private struct StationTimeRow: View {
     let required: Bool
 
     @State private var showStationPicker = false
+    @State private var pickerDate: Date = Date()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -237,12 +242,18 @@ private struct StationTimeRow: View {
                 }
             }
 
-            DatePicker("时间", selection: Binding(
-                get: { time ?? Date() },
-                set: { time = $0 }
-            ), displayedComponents: [.date, .hourAndMinute])
-            .labelsHidden()
-            .disabled(station.isEmpty)
+            DatePicker("时间", selection: $pickerDate, displayedComponents: [.date, .hourAndMinute])
+                .labelsHidden()
+                .disabled(station.isEmpty)
+                .onChange(of: pickerDate) { _, newValue in
+                    time = newValue
+                }
+                .onAppear {
+                    if let t = time { pickerDate = t }
+                }
+                .onChange(of: time) { _, newValue in
+                    if let t = newValue { pickerDate = t }
+                }
         }
         .sheet(isPresented: $showStationPicker) {
             StationPickerView(
@@ -314,7 +325,8 @@ private struct StationPickerView: View {
 #Preview {
     NavigationStack {
         TripEditView(draft: TripLog(
-            trainNumber: "CR400AF-2186",
+            trainNumber: "G81",
+            emuNumber: "CR400AF-2186",
             carriage: "04", seat: "05C"
         ))
         .environment(DataStore())

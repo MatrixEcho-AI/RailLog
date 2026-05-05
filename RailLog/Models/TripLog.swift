@@ -4,8 +4,10 @@ struct TripLog: Identifiable, Codable, Equatable, Hashable {
     var id: UUID = UUID()
     var isDraft: Bool = true
 
+    // 用户填写
+    var trainNumber: String = ""       // e.g. G81, D123
     // 从畅行码解析
-    var trainNumber: String = ""       // e.g. CR400AF-2186
+    var emuNumber: String = ""         // e.g. CR400AF-2186
     var carriage: String = ""          // e.g. 04
     var seat: String = ""              // e.g. 05C
 
