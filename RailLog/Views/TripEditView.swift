@@ -92,8 +92,7 @@ struct TripEditView: View {
             // MARK: - 车次信息
             Section {
                 LabeledContent("车次") {
-                    TextField("e.g. G81", text: $log.trainNumber)
-                        .multilineTextAlignment(.trailing)
+                    TrainNumberTextField(text: $log.trainNumber)
                 }
                 LabeledContent("动车组编号") {
                     TextField("e.g. CR400AF-2186", text: $log.emuNumber)
