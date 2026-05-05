@@ -30,6 +30,25 @@ final class DataStore {
         Domain.all.first { $0.id == currentDomainID } ?? Domain.chinaRailway
     }
 
+    func needsSafetyEducation(for domainID: String) -> Bool {
+        guard Domain.all.first(where: { $0.id == domainID })?.safetyEducation != nil else { return false }
+        return !completedSafetyEducationIDs.contains(domainID)
+    }
+
+    func markSafetyEducationCompleted(for domainID: String) {
+        completedSafetyEducationIDs.insert(domainID)
+    }
+
+    private var completedSafetyEducationIDs: Set<String> {
+        get {
+            let ids = UserDefaults.standard.stringArray(forKey: "safetyEducationCompleted") ?? []
+            return Set(ids)
+        }
+        set {
+            UserDefaults.standard.set(Array(newValue), forKey: "safetyEducationCompleted")
+        }
+    }
+
     private var logsURL: URL {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         return docs.appendingPathComponent("rail_logs_\(currentDomainID).json")

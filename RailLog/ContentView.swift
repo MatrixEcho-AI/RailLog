@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentView: View {
     @State private var store = DataStore()
     @State private var selectedTab = 0
+    @State private var showSafetyEducation = false
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -27,6 +28,19 @@ struct ContentView: View {
                 .tag(2)
         }
         .environment(store)
+        .fullScreenCover(isPresented: $showSafetyEducation) {
+            SafetyEducationView(domain: store.currentDomain) {
+                store.markSafetyEducationCompleted(for: store.currentDomainID)
+                showSafetyEducation = false
+            }
+            .interactiveDismissDisabled()
+        }
+        .onAppear {
+            showSafetyEducation = store.needsSafetyEducation(for: store.currentDomainID)
+        }
+        .onChange(of: store.currentDomainID) { _, newID in
+            showSafetyEducation = store.needsSafetyEducation(for: newID)
+        }
     }
 }
 
