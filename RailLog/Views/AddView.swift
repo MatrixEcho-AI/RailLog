@@ -7,6 +7,7 @@ struct AddView: View {
     @State private var navigateToEdit: TripLog? = nil
     @State private var verifying = false
     @State private var showDomainPicker = false
+    @State private var showDomainSettings = false
 
     var body: some View {
         NavigationStack {
@@ -14,23 +15,35 @@ struct AddView: View {
             VStack(spacing: 16) {
                 Spacer()
 
-                // 域切换
-                Button {
-                    showDomainPicker = true
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: store.currentDomain.icon)
-                        Text(store.currentDomain.name)
-                            .font(.subheadline.weight(.medium))
-                        Image(systemName: "chevron.down")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                // 域切换 + 设置
+                HStack(spacing: 12) {
+                    Button {
+                        showDomainPicker = true
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: store.currentDomain.icon)
+                            Text(store.currentDomain.name)
+                                .font(.subheadline.weight(.medium))
+                            Image(systemName: "chevron.down")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.horizontal, 12)
+                        .frame(height: 44)
+                        .background(.regularMaterial, in: .rect(cornerRadius: 12))
                     }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 44)
-                    .background(.regularMaterial, in: .rect(cornerRadius: 12))
+                    .buttonStyle(.plain)
+
+                    Button {
+                        showDomainSettings = true
+                    } label: {
+                        Image(systemName: "gearshape.fill")
+                            .font(.title3)
+                            .frame(width: 44, height: 44)
+                            .background(.regularMaterial, in: .rect(cornerRadius: 12))
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
                 .padding(.horizontal, 32)
 
                 // 大按钮：扫描铁路畅行码
@@ -95,6 +108,9 @@ struct AddView: View {
             }
             .sheet(isPresented: $showDomainPicker) {
                 DomainPickerView()
+            }
+            .sheet(isPresented: $showDomainSettings) {
+                DomainSettingsView()
             }
             .navigationDestination(item: $navigateToEdit) { draft in
                 TripEditView(draft: draft)

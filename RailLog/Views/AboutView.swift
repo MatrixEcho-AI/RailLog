@@ -25,15 +25,6 @@ struct AboutView: View {
                     }
                 }
 
-                Section("设置") {
-                    Picker("主项", selection: Binding(
-                        get: { store.preferTrainNumber },
-                        set: { store.preferTrainNumber = $0 }
-                    )) {
-                        Text("车次").tag(true)
-                        Text("动车组编号").tag(false)
-                    }
-                }
             }
             .navigationTitle("关于")
         }

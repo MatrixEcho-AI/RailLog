@@ -73,12 +73,6 @@ struct SafetyEducationView: View {
                             .padding(.horizontal, 32)
                             .autocorrectionDisabled()
 
-                        if !inputText.isEmpty && inputText != education.confirmationPhrase {
-                            Text("输入不正确，请检查")
-                                .font(.caption)
-                                .foregroundStyle(.red)
-                        }
-
                         Spacer()
 
                         Button {
