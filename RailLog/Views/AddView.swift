@@ -33,6 +33,7 @@ struct AddView: View {
                 // 小按钮：继续填写
                 if !store.drafts.isEmpty {
                     Button {
+                        store.cleanExpiredDrafts()
                         showDraftPicker = true
                     } label: {
                         Label("继续填写 (\(store.drafts.count) 个草稿)", systemImage: "doc.text")

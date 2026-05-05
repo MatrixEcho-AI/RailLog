@@ -4,6 +4,7 @@ struct LogDetailView: View {
     @Environment(DataStore.self) private var store
     @State var log: TripLog
     @State private var showEdit = false
+    @State private var showDeleteConfirm = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -50,8 +51,7 @@ struct LogDetailView: View {
             Section {
                 Button("编辑此日志") { showEdit = true }
                 Button("删除此日志", role: .destructive) {
-                    store.deleteLog(log)
-                    dismiss()
+                    showDeleteConfirm = true
                 }
             }
         }
@@ -60,6 +60,16 @@ struct LogDetailView: View {
             NavigationStack {
                 TripEditView(existingLog: log)
             }
+        }
+        .alert("删除运转日志", isPresented: $showDeleteConfirm) {
+            Button("取消", role: .cancel) {}
+            Button("确定删除", role: .destructive) {
+                store.deleteLog(log)
+                dismiss()
+            }
+        } message: {
+            let title = log.trainNumber.isEmpty ? log.emuNumber : log.trainNumber
+            Text("「\(title)」将被永久删除，不可恢复。")
         }
     }
 }

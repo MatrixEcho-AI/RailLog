@@ -102,6 +102,7 @@ final class DataStore {
         } catch {
             print("DataStore load error: \(error)")
         }
+        cleanExpiredDrafts()
     }
 
     private func saveLogs() {
@@ -110,7 +111,13 @@ final class DataStore {
     }
 
     private func saveDrafts() {
+        cleanExpiredDrafts()
         guard let data = try? JSONEncoder().encode(drafts) else { return }
         try? data.write(to: draftsURL, options: .atomic)
+    }
+
+    func cleanExpiredDrafts() {
+        let deadline = Date().addingTimeInterval(-600) // 10 分钟
+        drafts.removeAll { $0.createdAt < deadline }
     }
 }
