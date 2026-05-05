@@ -175,58 +175,25 @@ struct AboutView: View {
     }
 
     private func groupModelsBySeries() -> [ModelSeries] {
-        var groups: [(key: String, models: [TrainModel])] = []
+        var groups: [String: [TrainModel]] = [:]
 
         for model in trainModels {
-            let key = seriesKey(for: model.code)
-            if let idx = groups.firstIndex(where: { $0.key == key }) {
-                groups[idx].models.append(model)
-            } else {
-                groups.append((key: key, models: [model]))
-            }
+            groups[model.series, default: []].append(model)
         }
 
         let order = [
-            "CR400", "CR300", "CRH380", "CRH1", "CRH2",
-            "CRH3", "CRH5", "CRH6", "CR200J", "普速"
+            "CR450 复兴号", "CR400 复兴号", "CR400 智能",
+            "CR300 复兴号", "CR200J 动集",
+            "CRH380 和谐号", "CRH1 和谐号", "CRH2 和谐号",
+            "CRH3 和谐号", "CRH5 和谐号", "CRH6 和谐号"
         ]
-        groups.sort { a, b in
+        let sorted = groups.sorted { a, b in
             let ai = order.firstIndex(of: a.key) ?? 99
             let bi = order.firstIndex(of: b.key) ?? 99
             return ai < bi
         }
 
-        return groups.map { ModelSeries(name: seriesDisplayName($0.key), models: $0.models) }
-    }
-
-    private func seriesKey(for code: String) -> String {
-        if code.hasPrefix("CR400") { return "CR400" }
-        if code.hasPrefix("CR300") { return "CR300" }
-        if code.hasPrefix("CRH380") { return "CRH380" }
-        if code.hasPrefix("CRH1") { return "CRH1" }
-        if code.hasPrefix("CRH2") { return "CRH2" }
-        if code.hasPrefix("CRH3") { return "CRH3" }
-        if code.hasPrefix("CRH5") { return "CRH5" }
-        if code.hasPrefix("CRH6") { return "CRH6" }
-        if code.hasPrefix("CR200J") { return "CR200J" }
-        if code.hasPrefix("25") || code == "BSP" { return "普速" }
-        return "其他"
-    }
-
-    private func seriesDisplayName(_ key: String) -> String {
-        switch key {
-        case "CR400":  return "CR400 复兴号"
-        case "CR300":  return "CR300 复兴号"
-        case "CRH380": return "CRH380 和谐号"
-        case "CRH1":   return "CRH1 和谐号"
-        case "CRH2":   return "CRH2 和谐号"
-        case "CRH3":   return "CRH3 和谐号"
-        case "CRH5":   return "CRH5 和谐号"
-        case "CRH6":   return "CRH6 和谐号"
-        case "CR200J": return "CR200J 动集"
-        case "普速":    return "普速列车"
-        default:       return key
-        }
+        return sorted.map { ModelSeries(name: $0.key, models: $0.value) }
     }
 }
 

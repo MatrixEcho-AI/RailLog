@@ -10,6 +10,7 @@ struct TrainModel: Identifiable, Codable {
     var id: String { code }
     let code: String
     let name: String
+    let series: String
     let category: TrainCategory
 
     enum TrainCategory: String, Codable {
