@@ -23,7 +23,7 @@ struct ContentView: View {
             AboutView()
                 .tabItem {
                     Image(systemName: "info.circle")
-                    Text("关于")
+                    Text("统计")
                 }
                 .tag(2)
         }

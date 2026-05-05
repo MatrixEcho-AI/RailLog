@@ -157,4 +157,26 @@ final class DataStore {
         let deadline = Date().addingTimeInterval(-600)
         drafts.removeAll { $0.createdAt < deadline }
     }
+
+    // MARK: - 数据更新
+
+    var dataUpdateTime: Date? {
+        get {
+            let interval = UserDefaults.standard.double(forKey: "dataUpdateTime_\(currentDomainID)")
+            guard interval > 0 else { return nil }
+            return Date(timeIntervalSince1970: interval)
+        }
+        set {
+            if let date = newValue {
+                UserDefaults.standard.set(date.timeIntervalSince1970, forKey: "dataUpdateTime_\(currentDomainID)")
+            } else {
+                UserDefaults.standard.removeObject(forKey: "dataUpdateTime_\(currentDomainID)")
+            }
+        }
+    }
+
+    func refreshBundleData() async {
+        // TODO: 对接 API 更新车站列表、车型列表等
+        dataUpdateTime = Date()
+    }
 }
