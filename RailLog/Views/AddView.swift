@@ -6,12 +6,32 @@ struct AddView: View {
     @State private var showDraftPicker = false
     @State private var navigateToEdit: TripLog? = nil
     @State private var verifying = false
+    @State private var showDomainPicker = false
 
     var body: some View {
         NavigationStack {
             ZStack {
-            VStack(spacing: 32) {
+            VStack(spacing: 16) {
                 Spacer()
+
+                // 域切换
+                Button {
+                    showDomainPicker = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: store.currentDomain.icon)
+                        Text(store.currentDomain.name)
+                            .font(.subheadline.weight(.medium))
+                        Image(systemName: "chevron.down")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                    .background(.regularMaterial, in: .rect(cornerRadius: 12))
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, 32)
 
                 // 大按钮：扫描铁路畅行码
                 Button {
@@ -72,6 +92,9 @@ struct AddView: View {
                     showDraftPicker = false
                     navigateToEdit = draft
                 })
+            }
+            .sheet(isPresented: $showDomainPicker) {
+                DomainPickerView()
             }
             .navigationDestination(item: $navigateToEdit) { draft in
                 TripEditView(draft: draft)

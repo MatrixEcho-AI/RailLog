@@ -16,13 +16,31 @@ final class DataStore {
         }
     }
 
-    private let logsURL: URL
-    private let draftsURL: URL
+    var currentDomainID: String {
+        get { access(keyPath: \.currentDomainID); return UserDefaults.standard.string(forKey: "currentDomainID") ?? Domain.chinaRailway.id }
+        set {
+            withMutation(keyPath: \.currentDomainID) {
+                UserDefaults.standard.set(newValue, forKey: "currentDomainID")
+                load()
+            }
+        }
+    }
+
+    var currentDomain: Domain {
+        Domain.all.first { $0.id == currentDomainID } ?? Domain.chinaRailway
+    }
+
+    private var logsURL: URL {
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        return docs.appendingPathComponent("rail_logs_\(currentDomainID).json")
+    }
+
+    private var draftsURL: URL {
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        return docs.appendingPathComponent("rail_drafts_\(currentDomainID).json")
+    }
 
     init() {
-        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        logsURL = docs.appendingPathComponent("rail_logs.json")
-        draftsURL = docs.appendingPathComponent("rail_drafts.json")
         load()
     }
 
@@ -117,7 +135,7 @@ final class DataStore {
     }
 
     func cleanExpiredDrafts() {
-        let deadline = Date().addingTimeInterval(-600) // 10 分钟
+        let deadline = Date().addingTimeInterval(-600)
         drafts.removeAll { $0.createdAt < deadline }
     }
 }
