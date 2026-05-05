@@ -20,6 +20,7 @@ struct TripEditView: View {
     @State private var showSaveAlert = false
     @State private var saveAlertMessage = ""
     @State private var showExtraStations = false
+    @State private var reVerifying = false
 
     private var now: Date { Date() }
     private let maxTripDuration: TimeInterval = 48 * 3600
@@ -27,7 +28,7 @@ struct TripEditView: View {
     private var canEditStationTime: Bool { isDraftMode }
 
     private var canSaveAsDraft: Bool {
-        !log.departureStation.isEmpty && !log.arrivalStation.isEmpty
+        !log.departureStation.isEmpty && !log.arrivalStation.isEmpty && log.verifiedOnRailway == true
     }
 
     private var canFinalize: Bool {
@@ -35,6 +36,21 @@ struct TripEditView: View {
         guard log.departureTime != nil, log.arrivalTime != nil else { return false }
         guard let dep = log.departureTime, dep <= now else { return false }
         return true
+    }
+
+    private func reVerify() {
+        reVerifying = true
+        Task {
+            let result = await LocationVerifier.verify()
+            log.verifiedOnRailway = result.onRailway
+            reVerifying = false
+        }
+    }
+
+    private var saveDisabledMessage: String {
+        if log.departureStation.isEmpty || log.arrivalStation.isEmpty { return "请至少填写出发站和到达站" }
+        if log.verifiedOnRailway != true { return "请先验证位置" }
+        return ""
     }
 
     // 始发 <= 出发 < now
@@ -74,7 +90,7 @@ struct TripEditView: View {
     var body: some View {
         Form {
             // MARK: - 车次信息
-            Section("车次信息") {
+            Section {
                 LabeledContent("车次") {
                     TextField("e.g. G81", text: $log.trainNumber)
                         .multilineTextAlignment(.trailing)
@@ -94,19 +110,46 @@ struct TripEditView: View {
                     TextField("e.g. 05C", text: $log.seat)
                         .multilineTextAlignment(.trailing)
                 }
-
-                if let verified = log.verifiedOnRailway {
-                    HStack {
-                        Spacer()
-                        Label(
-                            verified ? "已确认在铁路上" : "未能确认铁路位置",
-                            systemImage: verified ? "checkmark.shield.fill" : "exclamationmark.triangle.fill"
-                        )
-                        .font(.caption)
-                        .foregroundStyle(verified ? .green : .orange)
-                        Spacer()
+            } header: {
+                Text("车次信息")
+            } footer: {
+                VStack(spacing: 4) {
+                    if reVerifying {
+                        HStack {
+                            Spacer()
+                            ProgressView("正在验证...")
+                                .font(.subheadline)
+                            Spacer()
+                        }
+                    } else if let verified = log.verifiedOnRailway {
+                        HStack {
+                            Spacer()
+                            if verified {
+                                Label("已确认在铁路上", systemImage: "checkmark.shield.fill")
+                                    .font(.subheadline.bold())
+                                    .foregroundStyle(.green)
+                            } else {
+                                Button {
+                                    reVerify()
+                                } label: {
+                                    Label("未能确认铁路位置，点击重试", systemImage: "exclamationmark.triangle.fill")
+                                        .font(.subheadline.bold())
+                                        .foregroundStyle(.orange)
+                                }
+                            }
+                            Spacer()
+                        }
+                    } else {
+                        Button {
+                            reVerify()
+                        } label: {
+                            Label("点击验证位置", systemImage: "location.circle")
+                                .font(.subheadline.bold())
+                                .foregroundStyle(.blue)
+                        }
                     }
                 }
+                .padding(.vertical, 4)
             }
 
             // MARK: - 运转信息
@@ -222,7 +265,7 @@ struct TripEditView: View {
                             store.updateDraft(log)
                             dismiss()
                         } else {
-                            saveAlertMessage = "请至少填写出发站和到达站"
+                            saveAlertMessage = saveDisabledMessage
                             showSaveAlert = true
                         }
                     } label: {
@@ -240,7 +283,7 @@ struct TripEditView: View {
                             store.finalizeDraft(log)
                             dismiss()
                         } else {
-                            saveAlertMessage = "需要出发站/到达站及其时间，且出发时间须在当下之前"
+                            saveAlertMessage = saveDisabledMessage
                             showSaveAlert = true
                         }
                     } label: {
@@ -258,7 +301,7 @@ struct TripEditView: View {
                             store.updateLog(log)
                             dismiss()
                         } else {
-                            saveAlertMessage = "请至少填写出发站和到达站"
+                            saveAlertMessage = saveDisabledMessage
                             showSaveAlert = true
                         }
                     } label: {

@@ -25,13 +25,15 @@ enum LocationVerifier {
 
     // MARK: - 入口
 
-    /// 取一次定位，查附近铁路线最短距离，< 100m 视为在铁路上
+    /// 取一次定位，查附近铁路线最短距离，< 250m 视为在铁路上
     static func verify() async -> RailVerificationResult {
         let location: CLLocation
         do {
             location = try await requestLocation()
+            print("[RailLog] 📍 定位成功 lat=\(location.coordinate.latitude) lon=\(location.coordinate.longitude) hAcc=\(location.horizontalAccuracy)")
         } catch {
-            return RailVerificationResult(onRailway: true, nearestDistance: nil) // 定位失败不阻断
+            print("[RailLog] ❌ 定位失败: \(error)")
+            return RailVerificationResult(onRailway: true, nearestDistance: nil)
         }
         return await checkDistance(from: location)
     }
@@ -71,26 +73,35 @@ enum LocationVerifier {
         req.timeoutInterval = 8
 
         do {
-            let (data, _) = try await URLSession.shared.data(for: req)
-            let resp = try JSONDecoder().decode(OverpassResponse.self, from: data)
-            let ways = resp.elements.filter { $0.type == "way" && $0.geometry != nil }
+            let (data, resp) = try await URLSession.shared.data(for: req)
+            if let httpResp = resp as? HTTPURLResponse {
+                print("[RailLog] 🌐 Overpass HTTP \(httpResp.statusCode)")
+            }
+            let decoded = try JSONDecoder().decode(OverpassResponse.self, from: data)
+            let ways = decoded.elements.filter { $0.type == "way" && $0.geometry != nil }
+            print("[RailLog] 🛤️ 搜索半径\(radius)m，找到 \(decoded.elements.count) 个元素，其中 \(ways.count) 条铁轨 way")
 
             var minDist: CLLocationDistance = .greatestFiniteMagnitude
-            for way in ways {
-                guard let geom = way.geometry else { continue }
+            for (i, way) in ways.enumerated() {
+                guard let geom = way.geometry, geom.count >= 2 else { continue }
                 let points = geom.map { CLLocationCoordinate2D(latitude: $0.lat, longitude: $0.lon) }
                 let dist = distance(from: location.coordinate, toPolyline: points)
                 if dist < minDist { minDist = dist }
+                if i < 3 { print("[RailLog]   way[\(i)] \(geom.count)点 → 距离 \(Int(dist))m") }
             }
+            if ways.count > 3 { print("[RailLog]   ... 共 \(ways.count) 条") }
 
             if minDist == .greatestFiniteMagnitude {
-                // 500m 内没找到铁轨
+                print("[RailLog] ⚠️ 未找到铁轨，判定不在铁路上")
                 return RailVerificationResult(onRailway: false, nearestDistance: nil)
             }
 
-            return RailVerificationResult(onRailway: minDist < 200, nearestDistance: minDist)
+            let passed = minDist < 250
+            print("[RailLog] \(passed ? "✅" : "⚠️") 最近铁轨距离 \(Int(minDist))m (阈值250m) → \(passed ? "通过" : "未通过")")
+            return RailVerificationResult(onRailway: passed, nearestDistance: minDist)
         } catch {
-            return RailVerificationResult(onRailway: true, nearestDistance: nil) // 网络失败不阻断
+            print("[RailLog] ❌ Overpass 请求失败: \(error)")
+            return RailVerificationResult(onRailway: true, nearestDistance: nil)
         }
     }
 
