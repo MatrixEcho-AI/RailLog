@@ -27,6 +27,8 @@ struct TripLog: Identifiable, Codable, Equatable, Hashable {
     var arrivalTime: Date? = nil       // 到达时间 (必填)
     var destinationTime: Date? = nil
 
+    var verifiedOnRailway: Bool? = nil   // nil=未校验, true=确认在铁路上, false=未通过
+
     var createdAt: Date = Date()
 
     /// 运转时长（出发→到达）

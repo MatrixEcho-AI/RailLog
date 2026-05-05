@@ -82,6 +82,8 @@ struct TripEditView: View {
                 LabeledContent("动车组编号") {
                     TextField("e.g. CR400AF-2186", text: $log.emuNumber)
                         .multilineTextAlignment(.trailing)
+                        .disabled(true)
+                        .foregroundStyle(.secondary)
                 }
                 LabeledContent("车厢") {
                     TextField("e.g. 04", text: $log.carriage)
@@ -91,6 +93,19 @@ struct TripEditView: View {
                 LabeledContent("座位") {
                     TextField("e.g. 05C", text: $log.seat)
                         .multilineTextAlignment(.trailing)
+                }
+
+                if let verified = log.verifiedOnRailway {
+                    HStack {
+                        Spacer()
+                        Label(
+                            verified ? "已确认在铁路上" : "未能确认铁路位置",
+                            systemImage: verified ? "checkmark.shield.fill" : "exclamationmark.triangle.fill"
+                        )
+                        .font(.caption)
+                        .foregroundStyle(verified ? .green : .orange)
+                        Spacer()
+                    }
                 }
             }
 

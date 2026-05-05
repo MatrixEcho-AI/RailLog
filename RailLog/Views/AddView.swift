@@ -5,9 +5,11 @@ struct AddView: View {
     @State private var showScanner = false
     @State private var showDraftPicker = false
     @State private var navigateToEdit: TripLog? = nil
+    @State private var verifying = false
 
     var body: some View {
         NavigationStack {
+            ZStack {
             VStack(spacing: 32) {
                 Spacer()
 
@@ -41,12 +43,27 @@ struct AddView: View {
 
                 Spacer()
             }
+
+            if verifying {
+                Color.black.opacity(0.3).ignoresSafeArea()
+                ProgressView("正在验证位置...")
+                    .padding(24)
+                    .background(.regularMaterial, in: .rect(cornerRadius: 12))
+            }
+            }
             .navigationTitle("新运转")
             .sheet(isPresented: $showScanner) {
                 ScannerView { scanned in
                     showScanner = false
-                    let draft = store.createDraft(from: scanned)
-                    navigateToEdit = draft
+                    verifying = true
+                    var draft = store.createDraft(from: scanned)
+                    Task {
+                        let result = await LocationVerifier.verify()
+                        draft.verifiedOnRailway = result.onRailway
+                        store.updateDraft(draft)
+                        verifying = false
+                        navigateToEdit = draft
+                    }
                 }
             }
             .sheet(isPresented: $showDraftPicker) {
