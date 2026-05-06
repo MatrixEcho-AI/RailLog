@@ -30,6 +30,7 @@ struct TripLog: Identifiable, Codable, Equatable, Hashable {
     var verifiedOnRailway: Bool? = nil   // nil=未校验, true=确认在铁路上, false=未通过
 
     var createdAt: Date = Date()
+    var modifiedAt: Date = Date()
 
     /// 运转时长（出发→到达）
     var duration: TimeInterval? {

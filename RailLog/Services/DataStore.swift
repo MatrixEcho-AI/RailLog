@@ -6,6 +6,7 @@ final class DataStore {
     private(set) var logs: [TripLog] = []
     private(set) var drafts: [TripLog] = []
     let bundleService = DataBundleService.shared
+    let cloudSync = CloudSyncService.shared
 
     var stations: [RailwayStation] { bundleService.stations }
     var models: [TrainModel] { bundleService.models }
@@ -113,29 +114,38 @@ final class DataStore {
         var completed = draft
         completed.isDraft = false
         completed.createdAt = Date()
+        completed.modifiedAt = Date()
         logs.insert(completed, at: 0)
         drafts.removeAll { $0.id == draft.id }
         saveLogs()
         saveDrafts()
+        Task { await cloudSync.pushOne(completed) }
     }
 
     func addLog(_ log: TripLog) {
         var newLog = log
         newLog.isDraft = false
+        newLog.modifiedAt = Date()
         logs.insert(newLog, at: 0)
         saveLogs()
+        Task { await cloudSync.pushOne(newLog) }
     }
 
     func updateLog(_ log: TripLog) {
+        var updated = log
+        updated.modifiedAt = Date()
         if let idx = logs.firstIndex(where: { $0.id == log.id }) {
-            logs[idx] = log
+            logs[idx] = updated
             saveLogs()
+            Task { await cloudSync.pushOne(updated) }
         }
     }
 
     func deleteLog(_ log: TripLog) {
-        logs.removeAll { $0.id == log.id }
+        let id = log.id
+        logs.removeAll { $0.id == id }
         saveLogs()
+        Task { await cloudSync.deleteOne(id) }
     }
 
     // MARK: - Persistence
@@ -168,6 +178,14 @@ final class DataStore {
     func cleanExpiredDrafts() {
         let deadline = Date().addingTimeInterval(-600)
         drafts.removeAll { $0.createdAt < deadline }
+    }
+
+    // MARK: - iCloud 同步
+
+    func performSync() async {
+        let merged = await cloudSync.sync(localLogs: logs)
+        logs = merged
+        saveLogs()
     }
 
     // MARK: - 数据更新

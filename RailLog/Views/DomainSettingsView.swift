@@ -3,10 +3,32 @@ import SwiftUI
 struct DomainSettingsView: View {
     @Environment(DataStore.self) private var store
     @Environment(\.dismiss) private var dismiss
+    @State private var refreshing = false
+
+    private var syncStatusText: String {
+        if store.cloudSync.syncInProgress {
+            return "同步中…"
+        }
+        if let error = store.cloudSync.syncError {
+            return "同步失败：\(error)"
+        }
+        if let last = store.cloudSync.lastSyncDate {
+            return "上次同步：\(last.formatted(.relative(presentation: .named)))"
+        }
+        return "尚未同步"
+    }
+
+    private var updateTimeString: String {
+        if let t = store.dataUpdateTime {
+            return t.formatted(date: .numeric, time: .omitted)
+        }
+        return "未更新"
+    }
 
     var body: some View {
         NavigationStack {
             Form {
+                // 主项
                 Section {
                     Picker("主项", selection: Binding(
                         get: { store.preferTrainNumber },
@@ -19,12 +41,77 @@ struct DomainSettingsView: View {
                     Text(store.currentDomain.name)
                 }
 
+                // iCloud 同步
+                Section {
+                    HStack {
+                        Label("iCloud 同步", systemImage: "icloud")
+                        Spacer()
+                        if store.cloudSync.syncInProgress {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                        }
+                        Text(syncStatusText)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Button {
+                        Task { await store.performSync() }
+                    } label: {
+                        Label("立即同步", systemImage: "arrow.triangle.2.circlepath")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .disabled(store.cloudSync.syncInProgress)
+                }
+
+                // 安全教育
                 Section {
                     Button {
                         store.triggerSafetyRelearn(for: store.currentDomainID)
                         dismiss()
                     } label: {
                         Label("重新学习安全教育", systemImage: "hand.raised.fill")
+                    }
+                }
+
+                // 数据包
+                Section {
+                    HStack {
+                        Text("数据包更新时间")
+                            .font(.subheadline)
+                        Spacer()
+                        if refreshing {
+                            ProgressView()
+                                .scaleEffect(0.6)
+                        } else {
+                            Text(updateTimeString)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Button {
+                        refreshing = true
+                        Task {
+                            await store.refreshBundleData()
+                            refreshing = false
+                        }
+                    } label: {
+                        Label("刷新数据包", systemImage: "arrow.triangle.2.circlepath")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .disabled(refreshing)
+                } footer: {
+                    Text("数据包包含车站列表、车型字典、路局与段信息等基础数据。车站数据来自 [rail.re](https://rail.re)，车型数据来自 [china-emu.cn](https://www.china-emu.cn)。")
+                }
+
+                // 意见和建议
+                Section {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("意见和建议")
+                            .font(.subheadline)
+                        Link("mikewu597@matrixecho.cn", destination: URL(string: "mailto:mikewu597@matrixecho.cn")!)
+                            .font(.caption)
+                        Link("i@hyp.ink", destination: URL(string: "mailto:i@hyp.ink")!)
+                            .font(.caption)
                     }
                 }
             }

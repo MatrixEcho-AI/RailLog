@@ -4,6 +4,7 @@ struct ContentView: View {
     @State private var store = DataStore()
     @State private var selectedTab = 0
     @State private var showSafetyEducation = false
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -43,6 +44,14 @@ struct ContentView: View {
         }
         .onChange(of: store.safetyRelearnToken) {
             showSafetyEducation = store.needsSafetyEducation(for: store.currentDomainID)
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                Task { await store.performSync() }
+            }
+        }
+        .task {
+            await store.performSync()
         }
     }
 }

@@ -2,8 +2,6 @@ import SwiftUI
 
 struct AboutView: View {
     @Environment(DataStore.self) private var store
-    @State private var refreshing = false
-
     private var totalTrips: Int {
         store.logs.filter { !$0.isDraft }.count
     }
@@ -52,13 +50,6 @@ struct AboutView: View {
             }
         }
         return counts.map { ($0.key, $0.value) }.sorted { $0.1 > $1.1 }
-    }
-
-    private var updateTimeString: String {
-        if let t = store.dataUpdateTime {
-            return t.formatted(date: .numeric, time: .omitted)
-        }
-        return "未更新"
     }
 
     var body: some View {
@@ -128,47 +119,6 @@ struct AboutView: View {
                     }
                 }
 
-                // 数据包更新
-                Section {
-                    HStack {
-                        Text("数据包更新时间")
-                            .font(.subheadline)
-                        Spacer()
-                        if refreshing {
-                            ProgressView()
-                                .scaleEffect(0.6)
-                        } else {
-                            Text(updateTimeString)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    Button {
-                        refreshing = true
-                        Task {
-                            await store.refreshBundleData()
-                            refreshing = false
-                        }
-                    } label: {
-                        Label("刷新数据包", systemImage: "arrow.triangle.2.circlepath")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .disabled(refreshing)
-                } footer: {
-                    Text("数据包包含车站列表、车型字典、路局与段信息等基础数据。车站数据来自 [rail.re](https://rail.re)，车型数据来自 [china-emu.cn](https://www.china-emu.cn)。")
-                }
-
-                // 意见和建议
-                Section {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("意见和建议")
-                            .font(.subheadline)
-                        Link("mikewu597@matrixecho.cn", destination: URL(string: "mailto:mikewu597@matrixecho.cn")!)
-                            .font(.caption)
-                        Link("i@hyp.ink", destination: URL(string: "mailto:i@hyp.ink")!)
-                            .font(.caption)
-                    }
-                }
             }
             .navigationTitle("统计")
         }
