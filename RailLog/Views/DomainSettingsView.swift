@@ -4,6 +4,7 @@ struct DomainSettingsView: View {
     @Environment(DataStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @State private var refreshing = false
+    @State private var exportURL: URL?
 
     private var syncStatusText: String {
         if store.cloudSync.syncInProgress {
@@ -41,7 +42,7 @@ struct DomainSettingsView: View {
                     Text(store.currentDomain.name)
                 }
 
-                // iCloud 同步
+                // iCloud 同步 + 导出
                 Section {
                     HStack {
                         Label("iCloud 同步", systemImage: "icloud")
@@ -61,6 +62,12 @@ struct DomainSettingsView: View {
                             .frame(maxWidth: .infinity)
                     }
                     .disabled(store.cloudSync.syncInProgress)
+                    Button {
+                        exportURL = store.exportCSV()
+                    } label: {
+                        Label("导出 CSV", systemImage: "square.and.arrow.up")
+                            .frame(maxWidth: .infinity)
+                    }
                 }
 
                 // 安全教育
@@ -106,7 +113,7 @@ struct DomainSettingsView: View {
                     }
                     .disabled(refreshing)
                 } footer: {
-                    Text("数据包包含车站列表、车型字典、路局车务段等基础数据。车站数据来自 [rail.re](https://rail.re)，车型数据来自 [china-emu.cn](https://www.china-emu.cn)，路局车务段来自维基百科。")
+                    Text("数据包包含车站列表、车型字典、路局客运段等基础数据。车站数据来自 [rail.re](https://rail.re)，车型数据来自 [china-emu.cn](https://www.china-emu.cn)，路局客运段来自维基百科。")
                 }
 
                 // 意见和建议
@@ -128,8 +135,28 @@ struct DomainSettingsView: View {
                     Button("完成") { dismiss() }
                 }
             }
+            .sheet(item: $exportURL) { url in
+                ActivityViewController(activityItems: [url])
+                    .presentationDetents([.medium, .large])
+            }
         }
     }
+}
+
+// MARK: - UIActivityViewController Wrapper
+
+private struct ActivityViewController: UIViewControllerRepresentable {
+    let activityItems: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+
+extension URL: @retroactive Identifiable {
+    public var id: String { absoluteString }
 }
 
 #Preview {

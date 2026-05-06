@@ -193,6 +193,66 @@ final class DataStore {
         saveLogs()
     }
 
+    // MARK: - CSV 导出
+
+    func exportCSV() -> URL {
+        let headers = [
+            "id", "车次", "动车组编号", "车厢", "座位",
+            "始发站", "出发站", "到达站", "终到站",
+            "始发时间", "出发时间", "到达时间", "终到时间",
+            "运转里程(km)", "最高时速(km/h)", "担当路局", "担当段",
+            "运转时长", "记录时间", "在途验证", "草稿"
+        ]
+
+        let formatter = ISO8601DateFormatter()
+        let dateFormatter: (Date?) -> String = { date in
+            guard let d = date else { return "" }
+            return formatter.string(from: d)
+        }
+
+        var lines = [headers.joined(separator: ",")]
+        let nonDrafts = logs.filter { !$0.isDraft }
+
+        for log in nonDrafts {
+            let row = [
+                log.id.uuidString,
+                csvEscape(log.trainNumber),
+                csvEscape(log.emuNumber),
+                csvEscape(log.carriage),
+                csvEscape(log.seat),
+                csvEscape(log.originStation),
+                csvEscape(log.departureStation),
+                csvEscape(log.arrivalStation),
+                csvEscape(log.destinationStation),
+                dateFormatter(log.originTime),
+                dateFormatter(log.departureTime),
+                dateFormatter(log.arrivalTime),
+                dateFormatter(log.destinationTime),
+                csvEscape(log.mileage),
+                csvEscape(log.maxSpeed),
+                csvEscape(log.bureau),
+                csvEscape(log.depot),
+                csvEscape(log.durationFormatted),
+                dateFormatter(log.createdAt),
+                log.verifiedOnRailway.map { $0 ? "是" : "否" } ?? "",
+                log.isDraft ? "是" : "否"
+            ]
+            lines.append(row.joined(separator: ","))
+        }
+
+        let csv = lines.joined(separator: "\n")
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("RailLog_导出.csv")
+        try? csv.write(to: url, atomically: true, encoding: .utf8)
+        return url
+    }
+
+    private func csvEscape(_ s: String) -> String {
+        if s.contains(",") || s.contains("\"") || s.contains("\n") {
+            return "\"\(s.replacingOccurrences(of: "\"", with: "\"\""))\""
+        }
+        return s
+    }
+
     // MARK: - 数据更新
 
     func refreshBundleData() async {
