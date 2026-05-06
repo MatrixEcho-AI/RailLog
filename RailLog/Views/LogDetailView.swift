@@ -133,6 +133,11 @@ struct LogDetailView: View {
                 TripEditView(existingLog: log)
             }
         }
+        .onChange(of: showEdit) { _, newValue in
+            if !newValue, let updated = store.logs.first(where: { $0.id == log.id }) {
+                log = updated
+            }
+        }
         .alert("删除运转日志", isPresented: $showDeleteConfirm) {
             Button("取消", role: .cancel) {}
             Button("确定删除", role: .destructive) {
