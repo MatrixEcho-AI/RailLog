@@ -89,6 +89,14 @@ struct LogDetailView: View {
                 }
             }
 
+            // 备注
+            if !log.notes.isEmpty {
+                Section("备注") {
+                    Text(log.notes)
+                        .font(.body)
+                }
+            }
+
             // 运转详情
             if !log.mileage.isEmpty || !log.maxSpeed.isEmpty || !log.bureau.isEmpty || !log.depot.isEmpty {
                 Section("运转详情") {
@@ -109,6 +117,17 @@ struct LogDetailView: View {
             }
         }
         .navigationTitle("运转详情")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    log.isFavorite.toggle()
+                    store.updateLog(log)
+                } label: {
+                    Image(systemName: log.isFavorite ? "heart.fill" : "heart")
+                        .foregroundStyle(log.isFavorite ? .red : .secondary)
+                }
+            }
+        }
         .sheet(isPresented: $showEdit) {
             NavigationStack {
                 TripEditView(existingLog: log)

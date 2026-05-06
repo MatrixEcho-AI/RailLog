@@ -28,6 +28,8 @@ struct TripLog: Identifiable, Codable, Equatable, Hashable {
     var destinationTime: Date? = nil
 
     var verifiedOnRailway: Bool? = nil   // nil=未校验, true=确认在铁路上, false=未通过
+    var isFavorite: Bool = false
+    var notes: String = ""
 
     var walletPassAddedAt: Date? = nil
     var createdAt: Date = Date()

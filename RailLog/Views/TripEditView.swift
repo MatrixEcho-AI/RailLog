@@ -103,14 +103,16 @@ struct TripEditView: View {
                         .disabled(true)
                         .foregroundStyle(.secondary)
                 }
-                LabeledContent("车厢") {
-                    TextField("e.g. 04", text: $log.carriage)
-                        .multilineTextAlignment(.trailing)
-                        .keyboardType(.numberPad)
+                Picker("车厢", selection: $log.carriage) {
+                    Text("未选择").tag("")
+                    ForEach(1...18, id: \.self) { i in
+                        Text(String(format: "%02d", i)).tag(String(format: "%02d", i))
+                    }
                 }
                 LabeledContent("座位") {
                     TextField("e.g. 05C", text: $log.seat)
                         .multilineTextAlignment(.trailing)
+                        .disabled(log.carriage.isEmpty)
                 }
             } header: {
                 Text("车次信息")
@@ -188,6 +190,13 @@ struct TripEditView: View {
                             Text(depot).tag(depot)
                         }
                     }
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("备注")
+                        .font(.subheadline)
+                    TextField("选填", text: $log.notes, axis: .vertical)
+                        .lineLimit(2...5)
                 }
             }
 

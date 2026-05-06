@@ -201,7 +201,7 @@ final class DataStore {
             "始发站", "出发站", "到达站", "终到站",
             "始发时间", "出发时间", "到达时间", "终到时间",
             "运转里程(km)", "最高时速(km/h)", "担当路局", "担当段",
-            "运转时长", "记录时间", "在途验证", "草稿"
+            "运转时长", "备注", "收藏", "记录时间", "在途验证", "草稿"
         ]
 
         let formatter = ISO8601DateFormatter()
@@ -233,6 +233,8 @@ final class DataStore {
                 csvEscape(log.bureau),
                 csvEscape(log.depot),
                 csvEscape(log.durationFormatted),
+                csvEscape(log.notes),
+                log.isFavorite ? "是" : "" ,
                 dateFormatter(log.createdAt),
                 log.verifiedOnRailway.map { $0 ? "是" : "否" } ?? "",
                 log.isDraft ? "是" : "否"

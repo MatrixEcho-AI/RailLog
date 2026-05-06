@@ -208,6 +208,8 @@ final class CloudSyncService {
         record["destinationTime"] = log.destinationTime
         record["verifiedOnRailway"] = log.verifiedOnRailway.map { $0 ? 1 : 0 }
         record["isDraft"] = log.isDraft ? 1 : 0
+        record["isFavorite"] = log.isFavorite ? 1 : 0
+        record["notes"] = log.notes
         record["createdAt"] = log.createdAt
         record["modifiedAt"] = log.modifiedAt
         return record
@@ -241,6 +243,8 @@ final class CloudSyncService {
         log.destinationTime = record["destinationTime"] as? Date
         log.createdAt = createdAt
         log.modifiedAt = modifiedAt
+        log.isFavorite = (record["isFavorite"] as? Int64) == 1
+        log.notes = record["notes"] as? String ?? ""
 
         if let verifiedInt = record["verifiedOnRailway"] as? Int64 {
             log.verifiedOnRailway = verifiedInt == 1

@@ -4,6 +4,7 @@ struct LogListView: View {
     @Environment(DataStore.self) private var store
     @State private var searchText = ""
     @State private var filterBureau: String = "全部"
+    @State private var showFavoritesOnly = false
     @State private var sortOrder: SortOrder = .newest
     @State private var deleteTarget: TripLog?
 
@@ -31,6 +32,10 @@ struct LogListView: View {
 
         if filterBureau != "全部" {
             result = result.filter { $0.bureau == filterBureau }
+        }
+
+        if showFavoritesOnly {
+            result = result.filter { $0.isFavorite }
         }
 
         switch sortOrder {
@@ -61,6 +66,13 @@ struct LogListView: View {
                         }
                     }
                     .pickerStyle(.menu)
+
+                    Button {
+                        showFavoritesOnly.toggle()
+                    } label: {
+                        Image(systemName: showFavoritesOnly ? "heart.fill" : "heart")
+                            .foregroundStyle(showFavoritesOnly ? .red : .secondary)
+                    }
 
                     Spacer()
 
@@ -141,6 +153,11 @@ struct LogRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
+                if log.isFavorite {
+                    Image(systemName: "heart.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.red)
+                }
                 Text(primaryText)
                     .font(.headline)
                     .fontDesign(.monospaced)
