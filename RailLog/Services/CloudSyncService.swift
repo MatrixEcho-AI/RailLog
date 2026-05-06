@@ -37,6 +37,8 @@ final class CloudSyncService {
         syncError = nil
         defer { syncInProgress = false }
 
+        print("[CloudSync] sync started, local logs: \(localLogs.count), non-draft: \(localLogs.filter { !$0.isDraft }.count)")
+
         var merged = localLogs
         let localByID = Dictionary(uniqueKeysWithValues: localLogs.map { ($0.id, $0) })
 
@@ -45,36 +47,54 @@ final class CloudSyncService {
         do {
             cloudRecords = try await fetchAll()
         } catch {
-            // Record type doesn't exist yet — treat cloud as empty,
-            // first push below will auto-create the schema.
+            print("[CloudSync] fetchAll threw: \(error.localizedDescription)")
             cloudRecords = []
         }
 
         var cloudByID: [UUID: CKRecord] = [:]
-        var cloudIDs = Set<UUID>()
 
         for record in cloudRecords {
-            guard let id = UUID(uuidString: record.recordID.recordName) else { continue }
+            let rawName = record.recordID.recordName
+            guard let id = UUID(uuidString: rawName) else {
+                print("[CloudSync] skip record: invalid UUID \(rawName)")
+                continue
+            }
             cloudByID[id] = record
-            cloudIDs.insert(id)
         }
 
+        print("[CloudSync] fetched \(cloudRecords.count) cloud records, \(cloudByID.count) valid")
+
         let localIDs = Set(localByID.keys)
+        let cloudIDs = Set(cloudByID.keys)
         let localOnlyIDs = localIDs.subtracting(cloudIDs)
         let cloudOnlyIDs = cloudIDs.subtracting(localIDs)
         let commonIDs = localIDs.intersection(cloudIDs)
 
+        print("[CloudSync] localOnly:\(localOnlyIDs.count) cloudOnly:\(cloudOnlyIDs.count) common:\(commonIDs.count)")
+
         // Push local-only logs
         for id in localOnlyIDs {
-            guard let log = localByID[id], !log.isDraft else { continue }
+            guard let log = localByID[id] else { continue }
+            if log.isDraft {
+                print("[CloudSync] skip pushing draft: \(id)")
+                continue
+            }
+            print("[CloudSync] pushing local-only log: \(log.trainNumber) \(id)")
             await pushOne(log)
         }
 
         // Pull cloud-only logs
         for id in cloudOnlyIDs {
-            guard let record = cloudByID[id],
-                  let log = tripLog(from: record),
-                  !log.isDraft else { continue }
+            guard let record = cloudByID[id] else { continue }
+            guard let log = tripLog(from: record) else {
+                print("[CloudSync] tripLog(from:) failed for \(id)")
+                continue
+            }
+            guard !log.isDraft else {
+                print("[CloudSync] skip draft \(id)")
+                continue
+            }
+            print("[CloudSync] pulled cloud-only log: \(log.trainNumber) \(id)")
             merged.append(log)
         }
 
@@ -102,12 +122,24 @@ final class CloudSyncService {
 
     /// Push a single log to CloudKit.
     func pushOne(_ log: TripLog) async {
-        guard await checkAccountStatus() else { return }
+        guard await checkAccountStatus() else {
+            print("[CloudSync] pushOne skipped: iCloud unavailable")
+            return
+        }
         let record = ckRecord(from: log)
         do {
-            try await db.save(record)
+            let (saveResults, _) = try await db.modifyRecords(
+                saving: [record], deleting: [],
+                savePolicy: .allKeys,
+                atomically: true
+            )
+            if let result = saveResults[record.recordID], case .failure(let error) = result {
+                print("[CloudSync] pushOne error: \(error.localizedDescription)")
+            } else {
+                print("[CloudSync] pushed: \(log.id)")
+            }
         } catch {
-            // Ignore single-push errors; batch sync handles them
+            print("[CloudSync] pushOne error: \(error.localizedDescription)")
         }
     }
 
@@ -125,7 +157,7 @@ final class CloudSyncService {
     // MARK: - CloudKit Fetch
 
     private func fetchAll() async throws -> [CKRecord] {
-        let query = CKQuery(recordType: recordType, predicate: NSPredicate(value: true))
+        let query = CKQuery(recordType: recordType, predicate: NSPredicate(format: "modifiedAt > %@", Date.distantPast as NSDate))
 
         var allRecords: [CKRecord] = []
         var cursor: CKQueryOperation.Cursor? = nil
@@ -138,10 +170,18 @@ final class CloudSyncService {
             } else {
                 (matchResults, nextCursor) = try await db.records(matching: query)
             }
-            allRecords.append(contentsOf: matchResults.compactMap { try? $0.1.get() })
+            for (recordID, result) in matchResults {
+                switch result {
+                case .success(let record):
+                    allRecords.append(record)
+                case .failure(let error):
+                    print("[CloudSync] fetch error for \(recordID.recordName): \(error.localizedDescription)")
+                }
+            }
             cursor = nextCursor
         } while cursor != nil
 
+        print("[CloudSync] fetchAll returned \(allRecords.count) records")
         return allRecords
     }
 
@@ -175,7 +215,10 @@ final class CloudSyncService {
 
     private func tripLog(from record: CKRecord) -> TripLog? {
         guard let createdAt = record["createdAt"] as? Date,
-              let modifiedAt = record["modifiedAt"] as? Date else { return nil }
+              let modifiedAt = record["modifiedAt"] as? Date else {
+            print("[CloudSync] tripLog missing dates: createdAt=\(record["createdAt"] ?? "nil"), modifiedAt=\(record["modifiedAt"] ?? "nil")")
+            return nil
+        }
 
         var log = TripLog()
         log.id = UUID(uuidString: record.recordID.recordName) ?? UUID()
