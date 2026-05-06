@@ -46,7 +46,16 @@ final class PassGenerator {
         for (name, data) in files {
             zip.addFile(name: name, data: data)
         }
-        return zip.finalize()
+        let pkpass = zip.finalize()
+
+        // Debug: save to Documents for openssl inspection
+        if let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+            let debugURL = docs.appendingPathComponent("debug.pkpass")
+            try? pkpass.write(to: debugURL)
+            print("[PassGen] saved debug.pkpass to \(debugURL.path)")
+        }
+
+        return pkpass
     }
 
     // MARK: - Pass JSON

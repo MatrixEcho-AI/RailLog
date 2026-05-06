@@ -96,7 +96,7 @@ struct LogDetailView: View {
 
             // 操作
             Section {
-                walletButton
+                // walletButton // 暂时隐藏
                 Button("编辑此日志") { showEdit = true }
                 Button("删除此日志", role: .destructive) {
                     showDeleteConfirm = true

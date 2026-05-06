@@ -1,16 +1,12 @@
 import CryptoKit
 import Foundation
 
-/// Minimal DER encoder for PKCS#7 SignedData structure.
-/// Produces a detached-style CMS signature suitable for Apple Wallet pass signing.
+/// Produces a DER-encoded PKCS#7 SignedData signature suitable for Apple Wallet pass signing.
 enum PKCS7Signer {
 
     // MARK: - Public
 
-    /// Sign `data` using the given identity (cert + private key).
-    /// Returns a DER-encoded PKCS#7 SignedData blob.
     static func sign(_ data: Data, identity: SecIdentity) throws -> Data {
-        // Extract certificate and private key
         var certRef: SecCertificate?
         guard SecIdentityCopyCertificate(identity, &certRef) == errSecSuccess, let cert = certRef else {
             throw Error.badIdentity
@@ -22,29 +18,63 @@ enum PKCS7Signer {
 
         let certData = SecCertificateCopyData(cert) as Data
 
-        // Compute SHA1 digest of data
         let digest = Data(Insecure.SHA1.hash(data: data))
 
-        // Sign digest with RSA
+        // Build signed attributes content (Attribute SEQUENCEs without outer SET).
+        // The outer SET tag is omitted because [0] IMPLICIT replaces it in SignerInfo.
+        let signedAttrsContent = buildSignedAttributes(contentDigest: digest)
+
+        // The signature is computed over the DER encoding of SET OF Attribute (with SET tag).
+        var setDer = DER()
+        setDer.append(tag: 0x31, data: signedAttrsContent)
+        let signedAttrsForSigning = setDer.bytes
+
+        // Sign the DER-encoded SET of signed attributes
         var signError: Unmanaged<CFError>?
-        guard let signature = SecKeyCreateSignature(key, .rsaSignatureMessagePKCS1v15SHA1, digest as CFData, &signError) as Data? else {
+        guard let signature = SecKeyCreateSignature(key, .rsaSignatureMessagePKCS1v15SHA1, signedAttrsForSigning as CFData, &signError) as Data? else {
             throw signError?.takeRetainedValue() ?? Error.signFailed
         }
 
-        // Build PKCS#7 SignedData
-        return try encodeSignedData(
-            content: data,
+        return encodeSignedData(
             certificate: certData,
+            signedAttributes: signedAttrsContent,
             signature: signature
         )
+    }
+
+    // MARK: - Signed Attributes
+
+    // OIDs
+    private static let oidContentType    = Data([0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x09, 0x03]) // 1.2.840.113549.1.9.3
+    private static let oidMessageDigest  = Data([0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x09, 0x04]) // 1.2.840.113549.1.9.4
+    private static let oidData           = Data([0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x07, 0x01]) // 1.2.840.113549.1.7.1
+
+    /// Build signed attributes content (without outer SET wrapper — IMPLICIT tag replaces it).
+    private static func buildSignedAttributes(contentDigest: Data) -> Data {
+        var der = DER()
+
+        // Attribute: contentType
+        der.append(tag: 0x30, constructed: true) { attr in
+            attr.append(tag: 0x06, data: oidContentType)
+            attr.append(tag: 0x31, constructed: true) { vals in
+                vals.append(tag: 0x06, data: oidData)
+            }
+        }
+        // Attribute: messageDigest
+        der.append(tag: 0x30, constructed: true) { attr in
+            attr.append(tag: 0x06, data: oidMessageDigest)
+            attr.append(tag: 0x31, constructed: true) { vals in
+                vals.append(tag: 0x04, data: contentDigest)
+            }
+        }
+
+        return der.bytes
     }
 
     // MARK: - DER Encoding
 
     private struct DER {
-        var bytes: Data
-
-        init() { bytes = Data() }
+        var bytes = Data()
 
         mutating func append(tag: UInt8, data: Data) {
             bytes.append(tag)
@@ -55,19 +85,17 @@ enum PKCS7Signer {
         mutating func append(tag: UInt8, constructed: Bool = false, _ build: (inout DER) -> Void) {
             var inner = DER()
             build(&inner)
-            let innerBytes = inner.bytes
-            let actualTag = constructed ? (tag | 0x20) : tag
-            bytes.append(actualTag)
-            encodeLength(innerBytes.count)
-            bytes.append(innerBytes)
+            let b = inner.bytes
+            bytes.append(constructed ? (tag | 0x20) : tag)
+            encodeLength(b.count)
+            bytes.append(b)
         }
 
         fileprivate mutating func encodeLength(_ len: Int) {
             if len < 128 {
                 bytes.append(UInt8(len))
             } else if len < 256 {
-                bytes.append(0x81)
-                bytes.append(UInt8(len))
+                bytes.append(0x81); bytes.append(UInt8(len))
             } else {
                 bytes.append(0x82)
                 bytes.append(UInt8(len >> 8))
@@ -76,130 +104,112 @@ enum PKCS7Signer {
         }
     }
 
-    // OIDs
-    private static let oidSignedData     = Data([0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x07, 0x02]) // 1.2.840.113549.1.7.2
-    private static let oidData           = Data([0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x07, 0x01]) // 1.2.840.113549.1.7.1
-    private static let oidSHA1           = Data([0x2b, 0x0e, 0x03, 0x02, 0x1a])                         // 1.3.14.3.2.26
-    private static let oidRSAWithSHA1    = Data([0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x05]) // 1.2.840.113549.1.1.5
-    private static let oidIssuerAndSerial = Data([0x55, 0x04, 0x1d]) // Actually, for signer identifier we use issuerAndSerialNumber from the cert
+    private static let oidSignedData     = Data([0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x07, 0x02])
+    private static let oidSHA1           = Data([0x2b, 0x0e, 0x03, 0x02, 0x1a])
+    private static let oidRSAWithSHA1    = Data([0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x05])
 
-    private static func encodeSignedData(content: Data, certificate: Data, signature: Data) throws -> Data {
+    private static func encodeSignedData(certificate: Data, signedAttributes: Data, signature: Data) -> Data {
         var der = DER()
 
-        // Top: SEQUENCE { OID signedData, [0] EXPLICIT { ... } }
+        // ContentInfo: SEQUENCE { OID signedData, [0] EXPLICIT SignedData }
         der.append(tag: 0x30, constructed: true) { top in
-            // OID: signedData
-            top.bytes.append(0x06); top.encodeLength(oidSignedData.count); top.bytes.append(oidSignedData)
+            top.append(tag: 0x06, data: oidSignedData)
 
-            // [0] EXPLICIT constructed — wraps the SignedData content
             top.append(tag: 0xa0, constructed: true) { sd in
                 sd.append(tag: 0x30, constructed: true) { body in
-                    // version: INTEGER 1
+                    // version: INTEGER 1 (PKCS#7 v1.5)
                     body.bytes.append(0x02); body.bytes.append(0x01); body.bytes.append(0x01)
 
-                    // digestAlgorithms: SET { SEQUENCE { OID sha1 } }
+                    // digestAlgorithms: SET of AlgorithmIdentifier
                     body.append(tag: 0x31, constructed: true) { da in
                         da.append(tag: 0x30, constructed: true) { alg in
-                            alg.bytes.append(0x06); alg.encodeLength(oidSHA1.count); alg.bytes.append(oidSHA1)
-                            // parameters: NULL
-                            alg.bytes.append(0x05); alg.bytes.append(0x00)
+                            alg.append(tag: 0x06, data: oidSHA1)
+                            alg.bytes.append(0x05); alg.bytes.append(0x00) // NULL
                         }
                     }
 
-                    // encapContentInfo: SEQUENCE { OID data }
+                    // encapContentInfo: SEQUENCE { OID data } (detached)
                     body.append(tag: 0x30, constructed: true) { eci in
-                        eci.bytes.append(0x06); eci.encodeLength(oidData.count); eci.bytes.append(oidData)
-                        // content is omitted (detached signature)
+                        eci.append(tag: 0x06, data: oidData)
                     }
 
-                    // certificates: [0] IMPLICIT SET { certificate, ... }  — include signer cert
+                    // certificates: [0] IMPLICIT (raw cert DER)
                     body.append(tag: 0xa0, constructed: true) { certs in
-                        certs.bytes.append(certificate)  // certificate is already DER-encoded
+                        certs.bytes.append(certificate)
                     }
 
-                    // signerInfos: SET { signerInfo }
+                    // signerInfos: SET of SignerInfo
                     body.append(tag: 0x31, constructed: true) { signers in
                         signers.append(tag: 0x30, constructed: true) { signer in
-                            // version: INTEGER 1
+                            // version: INTEGER 1 (PKCS#7 v1.5)
                             signer.bytes.append(0x02); signer.bytes.append(0x01); signer.bytes.append(0x01)
 
-                            // issuerAndSerialNumber: SEQUENCE (extract from cert)
-                            // Certificate is SEQUENCE { TBSCertificate, Algorithm, Signature }
-                            // TBSCert is SEQUENCE { ... version, serialNumber, signature, issuer, ... }
-                            // We extract issuer (field 3) and serialNumber (field 1)
-                            if let (issuerData, serialData) = extractIssuerAndSerial(from: certificate) {
+                            // issuerAndSerialNumber from cert
+                            if let (issuer, serial) = extractIssuerAndSerial(from: certificate) {
                                 signer.append(tag: 0x30, constructed: true) { isn in
-                                    isn.bytes.append(issuerData)
-                                    isn.bytes.append(serialData)
+                                    isn.bytes.append(Data(issuer))
+                                    isn.bytes.append(Data(serial))
                                 }
                             }
 
-                            // digestAlgorithm: SEQUENCE { OID sha1, NULL }
+                            // digestAlgorithm
                             signer.append(tag: 0x30, constructed: true) { alg in
-                                alg.bytes.append(0x06); alg.encodeLength(oidSHA1.count); alg.bytes.append(oidSHA1)
+                                alg.append(tag: 0x06, data: oidSHA1)
                                 alg.bytes.append(0x05); alg.bytes.append(0x00)
                             }
 
-                            // signatureAlgorithm: SEQUENCE { OID rsaWithSHA1, NULL }
+                            // signedAttributes: [0] IMPLICIT SET of Attribute
+                            signer.bytes.append(0xa0)
+                            signer.encodeLength(signedAttributes.count)
+                            signer.bytes.append(signedAttributes)
+
+                            // signatureAlgorithm
                             signer.append(tag: 0x30, constructed: true) { alg in
-                                alg.bytes.append(0x06); alg.encodeLength(oidRSAWithSHA1.count); alg.bytes.append(oidRSAWithSHA1)
+                                alg.append(tag: 0x06, data: oidRSAWithSHA1)
                                 alg.bytes.append(0x05); alg.bytes.append(0x00)
                             }
 
                             // signature: OCTET STRING
-                            signer.bytes.append(0x04); signer.encodeLength(signature.count); signer.bytes.append(signature)
+                            signer.append(tag: 0x04, data: signature)
                         }
                     }
                 }
             }
         }
 
+        print("[PKCS7] DER total: \(der.bytes.count) bytes")
         return der.bytes
     }
 
-    /// Extracts issuer and serialNumber from a DER-encoded X.509 certificate.
-    /// Returns (issuer SEQUENCE bytes, serialNumber INTEGER bytes).
-    private static func extractIssuerAndSerial(from certData: Data) -> (Data, Data)? {
+    // MARK: - Certificate Parsing
+
+    private static func extractIssuerAndSerial(from certData: Data) -> ([UInt8], [UInt8])? {
         let bytes = [UInt8](certData)
         var pos = 0
 
-        // Top: SEQUENCE
+        // Certificate ::= SEQUENCE
+        guard nextTLV(bytes, &pos, tag: 0x30) else { return nil }
+        // TBSCertificate ::= SEQUENCE
         guard nextTLV(bytes, &pos, tag: 0x30) else { return nil }
 
-        // TBSCertificate: SEQUENCE
-        guard nextTLV(bytes, &pos, tag: 0x30) else { return nil }
-
-        // version: [0] EXPLICIT (optional, skip if present)
-        let savedPos = pos
-        if let (tag, _, tlvLen) = peekTLV(bytes, pos) {
-            if tag == 0xa0 {
-                pos += tlvLen
-            }
+        // version [0] EXPLICIT (optional)
+        if pos < bytes.count && bytes[pos] == 0xa0 {
+            guard skipTLV(bytes, &pos) else { return nil }
         }
 
-        // serialNumber: INTEGER
-        guard let (serialTLV, serialValue) = captureTLV(bytes, &pos, tag: 0x02) else { return nil }
+        // serialNumber INTEGER
+        guard let (serialTLV, _) = captureTLV(bytes, &pos, tag: 0x02) else { return nil }
 
-        // signature algorithm: SEQUENCE (skip)
+        // signature algorithm SEQUENCE (skip)
         guard skipTLV(bytes, &pos) else { return nil }
 
-        // issuer: SEQUENCE
+        // issuer SEQUENCE
         guard let (issuerTLV, _) = captureTLV(bytes, &pos, tag: 0x30) else { return nil }
 
-        return (Data(issuerTLV), Data(serialTLV))
+        return (issuerTLV, serialTLV)
     }
 
     // MARK: - TLV Helpers
-
-    private static func peekTLV(_ bytes: [UInt8], _ pos: Int) -> (tag: UInt8, length: Int, totalLength: Int)? {
-        guard pos < bytes.count else { return nil }
-        let tag = bytes[pos]
-        var p = pos + 1
-        guard p < bytes.count else { return nil }
-        let len = readLength(bytes, &p)
-        guard len >= 0 else { return nil }
-        return (tag, len, p - pos + len)
-    }
 
     private static func nextTLV(_ bytes: [UInt8], _ pos: inout Int, tag: UInt8) -> Bool {
         guard pos < bytes.count, bytes[pos] == tag else { return false }
@@ -232,25 +242,20 @@ enum PKCS7Signer {
 
     private static func readLength(_ bytes: [UInt8], _ pos: inout Int) -> Int {
         guard pos < bytes.count else { return -1 }
-        let b = bytes[pos]
-        pos += 1
+        let b = bytes[pos]; pos += 1
         if b < 0x80 { return Int(b) }
-        let numOctets = Int(b & 0x7F)
-        guard numOctets <= 4, pos + numOctets <= bytes.count else { return -1 }
+        let count = Int(b & 0x7F)
+        guard count <= 4, pos + count <= bytes.count else { return -1 }
         var result = 0
-        for _ in 0..<numOctets {
+        for _ in 0..<count {
             result = (result << 8) | Int(bytes[pos])
             pos += 1
         }
         return result
     }
 
-    // MARK: - Error
-
     enum Error: Swift.Error, LocalizedError {
-        case badIdentity
-        case signFailed
-
+        case badIdentity, signFailed
         var errorDescription: String? {
             switch self {
             case .badIdentity: "无法从证书提取密钥"
