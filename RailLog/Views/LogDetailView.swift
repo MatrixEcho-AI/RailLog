@@ -1,3 +1,4 @@
+import PassKit
 import SwiftUI
 
 struct LogDetailView: View {
@@ -7,7 +8,19 @@ struct LogDetailView: View {
     @State private var showDeleteConfirm = false
     @State private var showTrainLogs = false
     @State private var showEMULogs = false
+    @State private var showAddPass = false
+    @State private var passData: Data?
+    @State private var passError: String?
     @Environment(\.dismiss) private var dismiss
+
+    private var walletButtonState: WalletButtonState {
+        guard let addedAt = log.walletPassAddedAt else { return .add }
+        return log.modifiedAt > addedAt ? .update : .added
+    }
+
+    private enum WalletButtonState {
+        case add, update, added
+    }
 
     var body: some View {
         List {
@@ -83,6 +96,7 @@ struct LogDetailView: View {
 
             // 操作
             Section {
+                walletButton
                 Button("编辑此日志") { showEdit = true }
                 Button("删除此日志", role: .destructive) {
                     showDeleteConfirm = true
@@ -111,6 +125,59 @@ struct LogDetailView: View {
         .sheet(isPresented: $showEMULogs) {
             MatchingLogsSheet(title: "动车组 \(log.emuNumber)", logs: store.logs.filter { $0.emuNumber == log.emuNumber })
         }
+        .sheet(isPresented: $showAddPass) {
+            if let data = passData {
+                PassAddViewController(passData: data, onAdded: onPassAdded)
+            }
+        }
+        .alert("无法添加到钱包", isPresented: .init(
+            get: { passError != nil },
+            set: { if !$0 { passError = nil } }
+        )) {
+            Button("确定") { passError = nil }
+        } message: {
+            if let error = passError { Text(error) }
+        }
+    }
+
+    // MARK: - Wallet Button
+
+    @ViewBuilder
+    private var walletButton: some View {
+        switch walletButtonState {
+        case .add:
+            Button {
+                generateAndPresentPass()
+            } label: {
+                Label("添加到钱包", systemImage: "wallet.pass")
+            }
+        case .update:
+            Button {
+                generateAndPresentPass()
+            } label: {
+                Label("更新钱包卡片", systemImage: "wallet.pass")
+            }
+        case .added:
+            HStack {
+                Label("已在钱包中", systemImage: "wallet.pass.fill")
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func generateAndPresentPass() {
+        let generator = PassGenerator()
+        do {
+            passData = try generator.generate(for: log)
+            showAddPass = true
+        } catch {
+            passError = error.localizedDescription
+        }
+    }
+
+    private func onPassAdded() {
+        log.walletPassAddedAt = Date()
+        store.updateLog(log)
     }
 }
 
@@ -153,6 +220,49 @@ private struct MatchingLogsSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("关闭") { dismiss() }
                 }
+            }
+        }
+    }
+}
+
+// MARK: - PKAddPassesViewController Wrapper
+
+struct PassAddViewController: UIViewControllerRepresentable {
+    let passData: Data
+    let onAdded: () -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    func makeUIViewController(context: Context) -> PKAddPassesViewController {
+        guard let pass = try? PKPass(data: passData) else {
+            return PKAddPassesViewController()
+        }
+        context.coordinator.pass = pass
+        let vc = PKAddPassesViewController(pass: pass)
+        vc?.delegate = context.coordinator
+        return vc ?? PKAddPassesViewController()
+    }
+
+    func updateUIViewController(_ uiViewController: PKAddPassesViewController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(dismiss: dismiss, onAdded: onAdded)
+    }
+
+    final class Coordinator: NSObject, PKAddPassesViewControllerDelegate {
+        let dismiss: DismissAction
+        let onAdded: () -> Void
+        var pass: PKPass?
+
+        init(dismiss: DismissAction, onAdded: @escaping () -> Void) {
+            self.dismiss = dismiss
+            self.onAdded = onAdded
+        }
+
+        func addPassesViewControllerDidFinish(_ controller: PKAddPassesViewController) {
+            let added = pass.map { PKPassLibrary().containsPass($0) } ?? false
+            controller.dismiss(animated: true) { [dismiss, onAdded] in
+                dismiss()
+                if added { onAdded() }
             }
         }
     }

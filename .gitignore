@@ -1,0 +1,7 @@
+# Certificate with private key — never commit
+*.p12
+pass.key
+
+# Xcode
+DerivedData/
+*.xcuserdata

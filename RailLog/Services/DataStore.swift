@@ -134,6 +134,7 @@ final class DataStore {
     func updateLog(_ log: TripLog) {
         var updated = log
         updated.modifiedAt = Date()
+        updated.walletPassAddedAt = nil
         if let idx = logs.firstIndex(where: { $0.id == log.id }) {
             logs[idx] = updated
             saveLogs()
