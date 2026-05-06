@@ -84,7 +84,9 @@ struct TripEditView: View {
     }
 
     private var depotsForSelectedBureau: [String] {
-        railwayBureaus.first(where: { $0.name == selectedBureau })?.depots ?? []
+        let bureaus = DataBundleService.shared.branches
+        if bureaus.isEmpty { return railwayBureaus.first(where: { $0.name == selectedBureau })?.depots ?? [] }
+        return bureaus.first(where: { $0.name == selectedBureau })?.depots ?? []
     }
 
     var body: some View {
@@ -97,6 +99,7 @@ struct TripEditView: View {
                 LabeledContent("动车组编号") {
                     TextField("e.g. CR400AF-2186", text: $log.emuNumber)
                         .multilineTextAlignment(.trailing)
+                        .fontDesign(.monospaced)
                         .disabled(true)
                         .foregroundStyle(.secondary)
                 }
@@ -166,7 +169,8 @@ struct TripEditView: View {
 
                 Picker("担当路局", selection: $selectedBureau) {
                     Text("未选择").tag("")
-                    ForEach(railwayBureaus) { bureau in
+                    let bureaus = DataBundleService.shared.branches.isEmpty ? railwayBureaus : DataBundleService.shared.branches
+                    ForEach(bureaus) { bureau in
                         Text(bureau.name).tag(bureau.name)
                     }
                 }

@@ -88,6 +88,12 @@ struct DomainSettingsView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("铁路局 \(store.branchCount) 个 · 客运段 \(store.depotCount) 个")
+                        Text("车站 \(store.stationCount) 个 · 车型 \(store.modelCount) 种")
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                     Button {
                         refreshing = true
                         Task {
@@ -100,7 +106,7 @@ struct DomainSettingsView: View {
                     }
                     .disabled(refreshing)
                 } footer: {
-                    Text("数据包包含车站列表、车型字典、路局与段信息等基础数据。车站数据来自 [rail.re](https://rail.re)，车型数据来自 [china-emu.cn](https://www.china-emu.cn)。")
+                    Text("数据包包含车站列表、车型字典、路局车务段等基础数据。车站数据来自 [rail.re](https://rail.re)，车型数据来自 [china-emu.cn](https://www.china-emu.cn)，路局车务段来自维基百科。")
                 }
 
                 // 意见和建议

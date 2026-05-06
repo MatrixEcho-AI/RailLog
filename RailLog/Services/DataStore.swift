@@ -11,6 +11,10 @@ final class DataStore {
     var stations: [RailwayStation] { bundleService.stations }
     var models: [TrainModel] { bundleService.models }
     var dataUpdateTime: Date? { bundleService.stationsUpdateDate }
+    var stationCount: Int { bundleService.stationCount }
+    var modelCount: Int { bundleService.modelCount }
+    var branchCount: Int { bundleService.branchCount }
+    var depotCount: Int { bundleService.depotCount }
 
     /// true = 主项显示车次, false = 主项显示动车组编号
     var preferTrainNumber: Bool {

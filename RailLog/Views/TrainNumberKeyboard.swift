@@ -10,7 +10,7 @@ struct TrainNumberTextField: UIViewRepresentable {
         textField.placeholder = "e.g. G81"
         textField.text = text
         textField.textAlignment = .right
-        textField.font = .preferredFont(forTextStyle: .body)
+        textField.font = .monospacedSystemFont(ofSize: UIFont.preferredFont(forTextStyle: .body).pointSize, weight: .regular)
         textField.delegate = context.coordinator
         textField.tintColor = .clear
 

@@ -136,6 +136,7 @@ struct DraftPickerView: View {
                                 if !draft.trainNumber.isEmpty || !draft.emuNumber.isEmpty {
                                     Text(draft.trainNumber.isEmpty ? draft.emuNumber : draft.trainNumber)
                                         .font(.headline)
+                                        .fontDesign(.monospaced)
                                 } else {
                                     Text("空草稿")
                                         .font(.headline)

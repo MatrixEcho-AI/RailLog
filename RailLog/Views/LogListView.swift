@@ -46,7 +46,8 @@ struct LogListView: View {
     }
 
     private var bureauOptions: [String] {
-        ["全部"] + railwayBureaus.map(\.name)
+        let bureaus = DataBundleService.shared.branches.isEmpty ? railwayBureaus : DataBundleService.shared.branches
+        return ["全部"] + bureaus.map(\.name)
     }
 
     var body: some View {
@@ -142,6 +143,7 @@ struct LogRow: View {
             HStack {
                 Text(primaryText)
                     .font(.headline)
+                    .fontDesign(.monospaced)
                 if !log.carriage.isEmpty || !log.seat.isEmpty {
                     Text("\(log.carriage)车\(log.seat)")
                         .font(.subheadline)
@@ -156,6 +158,7 @@ struct LogRow: View {
             if let secondary = secondaryText {
                 Text(secondary)
                     .font(.caption)
+                    .fontDesign(.monospaced)
                     .foregroundStyle(.secondary)
             }
 
