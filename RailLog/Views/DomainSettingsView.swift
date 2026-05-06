@@ -14,14 +14,14 @@ struct DomainSettingsView: View {
             return "同步失败：\(error)"
         }
         if let last = store.cloudSync.lastSyncDate {
-            return "上次同步：\(last.formatted(.relative(presentation: .named)))"
+            return "上次同步：\(last.zhRelative)"
         }
         return "尚未同步"
     }
 
     private var updateTimeString: String {
         if let t = store.dataUpdateTime {
-            return t.formatted(date: .numeric, time: .omitted)
+            return t.zhDate
         }
         return "未更新"
     }

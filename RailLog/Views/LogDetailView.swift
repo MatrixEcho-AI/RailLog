@@ -11,6 +11,9 @@ struct LogDetailView: View {
     @State private var showAddPass = false
     @State private var passData: Data?
     @State private var passError: String?
+    @State private var matchingTitle = ""
+    @State private var matchingLogs: [TripLog] = []
+    @State private var showMatchingLogs = false
     @Environment(\.dismiss) private var dismiss
 
     private var walletButtonState: WalletButtonState {
@@ -68,21 +71,21 @@ struct LogDetailView: View {
 
             // 站点信息
             Section("站点信息") {
-                DetailRow(label: "始发站", value: log.originStation)
+                DetailRow(label: "始发站", value: log.originStation) { showStationLogs(log.originStation) }
                 if let t = log.originTime {
-                    DetailRow(label: "始发时间", value: t.formatted(date: .omitted, time: .shortened))
+                    DetailRow(label: "始发时间", value: t.zhDateTime)
                 }
-                DetailRow(label: "出发站", value: log.departureStation)
+                DetailRow(label: "出发站", value: log.departureStation) { showStationLogs(log.departureStation) }
                 if let t = log.departureTime {
-                    DetailRow(label: "出发时间", value: t.formatted(date: .omitted, time: .shortened))
+                    DetailRow(label: "出发时间", value: t.zhDateTime)
                 }
-                DetailRow(label: "到达站", value: log.arrivalStation)
+                DetailRow(label: "到达站", value: log.arrivalStation) { showStationLogs(log.arrivalStation) }
                 if let t = log.arrivalTime {
-                    DetailRow(label: "到达时间", value: t.formatted(date: .omitted, time: .shortened))
+                    DetailRow(label: "到达时间", value: t.zhDateTime)
                 }
-                DetailRow(label: "终到站", value: log.destinationStation)
+                DetailRow(label: "终到站", value: log.destinationStation) { showStationLogs(log.destinationStation) }
                 if let t = log.destinationTime {
-                    DetailRow(label: "终到时间", value: t.formatted(date: .omitted, time: .shortened))
+                    DetailRow(label: "终到时间", value: t.zhDateTime)
                 }
             }
 
@@ -91,8 +94,8 @@ struct LogDetailView: View {
                 Section("运转详情") {
                     DetailRow(label: "运转里程", value: log.mileage.isEmpty ? "-" : "\(log.mileage) km")
                     DetailRow(label: "最高时速", value: log.maxSpeed.isEmpty ? "-" : "\(log.maxSpeed) km/h")
-                    DetailRow(label: "担当路局", value: log.bureau)
-                    DetailRow(label: "担当段", value: log.depot)
+                    DetailRow(label: "担当路局", value: log.bureau) { showBureauLogs(log.bureau) }
+                    DetailRow(label: "担当段", value: log.depot) { showDepotLogs(log.depot) }
                 }
             }
 
@@ -127,6 +130,9 @@ struct LogDetailView: View {
         .sheet(isPresented: $showEMULogs) {
             MatchingLogsSheet(title: "动车组 \(log.emuNumber)", logs: store.logs.filter { $0.emuNumber == log.emuNumber })
         }
+        .sheet(isPresented: $showMatchingLogs) {
+            MatchingLogsSheet(title: matchingTitle, logs: matchingLogs)
+        }
         .sheet(isPresented: $showAddPass) {
             if let data = passData {
                 PassAddViewController(passData: data, onAdded: onPassAdded)
@@ -140,6 +146,32 @@ struct LogDetailView: View {
         } message: {
             if let error = passError { Text(error) }
         }
+    }
+
+    // MARK: - Navigation Helpers
+
+    private func showStationLogs(_ name: String) {
+        guard !name.isEmpty else { return }
+        matchingTitle = "站点 \(name)"
+        matchingLogs = store.logs.filter { log in
+            log.originStation == name || log.departureStation == name ||
+            log.arrivalStation == name || log.destinationStation == name
+        }
+        showMatchingLogs = true
+    }
+
+    private func showBureauLogs(_ bureau: String) {
+        guard !bureau.isEmpty else { return }
+        matchingTitle = "路局 \(bureau)"
+        matchingLogs = store.logs.filter { $0.bureau == bureau }
+        showMatchingLogs = true
+    }
+
+    private func showDepotLogs(_ depot: String) {
+        guard !depot.isEmpty else { return }
+        matchingTitle = "客运段 \(depot)"
+        matchingLogs = store.logs.filter { $0.depot == depot }
+        showMatchingLogs = true
     }
 
     // MARK: - Wallet Button
@@ -183,17 +215,41 @@ struct LogDetailView: View {
     }
 }
 
+// MARK: - Detail Row
+
 struct DetailRow: View {
     let label: String
     let value: String
+    var action: (() -> Void)?
+
+    init(label: String, value: String, action: (() -> Void)? = nil) {
+        self.label = label
+        self.value = value
+        self.action = action
+    }
 
     var body: some View {
         if !value.isEmpty && value != "-" {
-            HStack {
-                Text(label)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text(value)
+            if let action {
+                Button(action: action) {
+                    HStack {
+                        Text(label)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Text(value)
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .buttonStyle(.plain)
+            } else {
+                HStack {
+                    Text(label)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(value)
+                }
             }
         }
     }
@@ -276,7 +332,7 @@ struct PassAddViewController: UIViewControllerRepresentable {
             trainNumber: "G81",
             emuNumber: "CR400AF-2186",
             carriage: "04", seat: "05C",
-            bureau: "北京局", depot: "北京动车段",
+            bureau: "北京局", depot: "北京客运段",
             departureStation: "北京南", arrivalStation: "上海虹桥"
         ))
         .environment(DataStore())

@@ -143,7 +143,7 @@ struct DraftPickerView: View {
                                         .foregroundStyle(.secondary)
                                 }
                                 Spacer()
-                                Text(draft.createdAt, style: .relative)
+                                Text(draft.createdAt.zhRelative)
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }

@@ -29,6 +29,7 @@ struct ContentView: View {
                 .tag(2)
         }
         .environment(store)
+        .environment(\.locale, Locale(identifier: "zh_CN"))
         .fullScreenCover(isPresented: $showSafetyEducation) {
             SafetyEducationView(domain: store.currentDomain) {
                 store.markSafetyEducationCompleted(for: store.currentDomainID)

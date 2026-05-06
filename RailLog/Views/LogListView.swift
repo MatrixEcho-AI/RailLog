@@ -150,7 +150,7 @@ struct LogRow: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Text(log.createdAt, style: .date)
+                Text(log.createdAt.zhDate)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
