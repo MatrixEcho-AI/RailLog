@@ -62,6 +62,54 @@ final class MapCacheService {
         return points
     }
 
+    // MARK: - Nearest Station
+
+    /// Find the station from dictionary closest to userʼs current location.
+    /// Returns station name and current time, or nil if no station found within range.
+    func findNearestStation() async -> (name: String, time: Date)? {
+        let location: CLLocation
+        do {
+            location = try await MapLocationRequester.request()
+        } catch {
+            return nil
+        }
+
+        // If location is too old or inaccurate, bail
+        guard location.horizontalAccuracy >= 0, location.horizontalAccuracy < 1000 else { return nil }
+
+        let request = MKLocalSearch.Request()
+        request.naturalLanguageQuery = "火车站"
+        request.region = MKCoordinateRegion(
+            center: location.coordinate,
+            latitudinalMeters: 2000,
+            longitudinalMeters: 2000
+        )
+        request.resultTypes = .pointOfInterest
+
+        guard let result = try? await MKLocalSearch(request: request).start() else { return nil }
+
+        let stationNames = Set(DataBundleService.shared.stations.map(\.name))
+        let userLoc = location
+
+        // Sort by distance from user, then find first dictionary match
+        let sorted = result.mapItems.sorted { a, b in
+            let dA = a.placemark.location.map { userLoc.distance(from: $0) } ?? .greatestFiniteMagnitude
+            let dB = b.placemark.location.map { userLoc.distance(from: $0) } ?? .greatestFiniteMagnitude
+            return dA < dB
+        }
+
+        for item in sorted {
+            guard let name = item.name else { continue }
+            var normalized = name
+            if normalized.hasSuffix("站") { normalized.removeLast() }
+            if stationNames.contains(normalized) {
+                return (name: normalized, time: Date())
+            }
+        }
+
+        return nil
+    }
+
     // MARK: - Persistence
 
     private struct CacheFile: Codable {
@@ -80,5 +128,40 @@ final class MapCacheService {
         let cache = CacheFile(stationCoords: stationCoords, routePoints: routePoints)
         guard let data = try? JSONEncoder().encode(cache) else { return }
         try? data.write(to: cacheURL, options: .atomic)
+    }
+}
+
+// MARK: - Location requester
+
+private final class MapLocationRequester: NSObject, CLLocationManagerDelegate {
+    private let manager = CLLocationManager()
+    private var done = false
+    private var continuation: CheckedContinuation<CLLocation, Error>?
+
+    static func request() async throws -> CLLocation {
+        let requester = MapLocationRequester()
+        return try await withCheckedThrowingContinuation { cont in
+            requester.continuation = cont
+            requester.start()
+        }
+    }
+
+    private func start() {
+        manager.delegate = self
+        manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
+        manager.requestWhenInUseAuthorization()
+        manager.requestLocation()
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard !done, let loc = locations.last else { return }
+        done = true
+        continuation?.resume(returning: loc)
+    }
+
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        guard !done else { return }
+        done = true
+        continuation?.resume(throwing: error)
     }
 }

@@ -127,6 +127,26 @@ struct DomainSettingsView: View {
                             .font(.caption)
                     }
                 }
+
+                // 法律与许可
+                Section {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("本软件与中国国家铁路集团有限公司及其分支机构、各地方铁路公司不存在任何关联或隶属关系。")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+
+                        Divider()
+
+                        Text("RailLog 以 MIT 许可证开源，欢迎参与贡献。")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Link("GitHub 仓库", destination: URL(string: "https://github.com/mikewu597/RailLog")!)
+                            .font(.caption)
+                        Link("查看许可证 (MIT)", destination: URL(string: "https://github.com/mikewu597/RailLog/blob/main/LICENSE.md")!)
+                            .font(.caption)
+                    }
+                }
             }
             .navigationTitle("域设置")
             .navigationBarTitleDisplayMode(.inline)

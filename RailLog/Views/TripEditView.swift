@@ -162,11 +162,21 @@ struct TripEditView: View {
                     TextField("选填", text: $log.mileage)
                         .multilineTextAlignment(.trailing)
                         .keyboardType(.decimalPad)
+                        .onChange(of: log.mileage) { _, newValue in
+                            if let v = Double(newValue), v > 5000 {
+                                log.mileage = "5000"
+                            }
+                        }
                 }
                 LabeledContent("最高时速 (km/h)") {
                     TextField("选填", text: $log.maxSpeed)
                         .multilineTextAlignment(.trailing)
                         .keyboardType(.numberPad)
+                        .onChange(of: log.maxSpeed) { _, newValue in
+                            if let v = Int(newValue), v > 600 {
+                                log.maxSpeed = "600"
+                            }
+                        }
                 }
 
                 Picker("担当路局", selection: $selectedBureau) {
@@ -358,6 +368,7 @@ private struct StationTimeRow: View {
 
     @State private var showStationPicker = false
     @State private var pickerDate: Date = Date()
+    @State private var searching = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -366,6 +377,31 @@ private struct StationTimeRow: View {
                     .font(.subheadline.bold())
 
                 Spacer()
+
+                if editable {
+                    Button {
+                        searching = true
+                        Task {
+                            if let result = await MapCacheService.shared.findNearestStation() {
+                                station = result.name
+                                let clamped = min(max(result.time, dateRange.lowerBound), dateRange.upperBound)
+                                pickerDate = clamped
+                                time = clamped
+                            }
+                            searching = false
+                        }
+                    } label: {
+                        if searching {
+                            ProgressView()
+                                .scaleEffect(0.7)
+                        } else {
+                            Image(systemName: "location.fill")
+                                .font(.caption)
+                                .foregroundStyle(.blue)
+                        }
+                    }
+                    .buttonStyle(.borderless)
+                }
 
                 Button {
                     if editable { showStationPicker = true }
@@ -448,19 +484,11 @@ private struct StationPickerView: View {
                     HStack {
                         VStack(alignment: .leading) {
                             Text(station.name)
-                            Text("\(station.bureau) · \(station.code)")
+                            Text(station.code)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
-                        if station.isHighSpeed {
-                            Text("G/D")
-                                .font(.caption2)
-                                .foregroundStyle(.blue)
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 2)
-                                .background(.blue.opacity(0.1), in: .capsule)
-                        }
                     }
                 }
             }
