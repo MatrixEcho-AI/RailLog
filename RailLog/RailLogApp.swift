@@ -17,6 +17,10 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 struct RailLogApp: App {
     @UIApplicationDelegateAdaptor private var appDelegate: AppDelegate
 
+    init() {
+        MapCacheService.shared.prewarm()
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()

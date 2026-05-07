@@ -23,6 +23,17 @@ final class MapCacheService {
 
     init() { load() }
 
+    // MARK: - Prewarm
+
+    /// Prewarm MKLocalSearch so first-use overhead doesnʼt hitch navigation.
+    func prewarm() {
+        Task.detached(priority: .background) {
+            let request = MKLocalSearch.Request()
+            request.naturalLanguageQuery = "北京站"
+            _ = try? await MKLocalSearch(request: request).start()
+        }
+    }
+
     // MARK: - Coordinate lookup
 
     func coord(for stationName: String) -> MapCoord? { stationCoords[stationName] }
