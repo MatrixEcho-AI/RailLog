@@ -10,7 +10,9 @@ final class DataStore {
 
     var stations: [RailwayStation] { bundleService.stations }
     var models: [TrainModel] { bundleService.models }
-    var dataUpdateTime: Date? { bundleService.stationsUpdateDate }
+    var stationsUpdateTime: Date? { bundleService.stationsUpdateDate }
+    var modelsUpdateTime: Date? { bundleService.modelsUpdateDate }
+    var branchesUpdateTime: Date? { bundleService.branchesUpdateDate }
     var stationCount: Int { bundleService.stationCount }
     var modelCount: Int { bundleService.modelCount }
     var branchCount: Int { bundleService.branchCount }

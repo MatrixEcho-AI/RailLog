@@ -19,10 +19,8 @@ struct DomainSettingsView: View {
         return "尚未同步"
     }
 
-    private var updateTimeString: String {
-        if let t = store.dataUpdateTime {
-            return t.zhDate
-        }
+    private func timeString(_ date: Date?) -> String {
+        if let t = date { return t.zhDate }
         return "未更新"
     }
 
@@ -82,25 +80,57 @@ struct DomainSettingsView: View {
 
                 // 数据包
                 Section {
-                    HStack {
-                        Text("数据包更新时间")
-                            .font(.subheadline)
-                        Spacer()
-                        if refreshing {
-                            ProgressView()
-                                .scaleEffect(0.6)
-                        } else {
-                            Text(updateTimeString)
+                    VStack(spacing: 12) {
+                        HStack {
+                            Text("车站数据")
                                 .font(.subheadline)
+                            Text("\(store.stationCount) 个")
+                                .font(.caption)
                                 .foregroundStyle(.secondary)
+                            Spacer()
+                            if refreshing {
+                                ProgressView().scaleEffect(0.6)
+                            } else {
+                                Text(timeString(store.stationsUpdateTime))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+
+                        HStack {
+                            Text("车型数据")
+                                .font(.subheadline)
+                            Text("\(store.modelCount) 种")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            if refreshing {
+                                ProgressView().scaleEffect(0.6)
+                            } else {
+                                Text(timeString(store.modelsUpdateTime))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+
+                        HStack {
+                            Text("路局数据")
+                                .font(.subheadline)
+                            Text("\(store.branchCount) 局 · \(store.depotCount) 段")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            if refreshing {
+                                ProgressView().scaleEffect(0.6)
+                            } else {
+                                Text(timeString(store.branchesUpdateTime))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("铁路局 \(store.branchCount) 个 · 客运段 \(store.depotCount) 个")
-                        Text("车站 \(store.stationCount) 个 · 车型 \(store.modelCount) 种")
-                    }
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 4)
+
                     Button {
                         refreshing = true
                         Task {
@@ -113,7 +143,7 @@ struct DomainSettingsView: View {
                     }
                     .disabled(refreshing)
                 } footer: {
-                    Text("数据包包含车站列表、车型字典、路局客运段等基础数据。车站数据来自 [rail.re](https://rail.re)，车型数据来自 [china-emu.cn](https://www.china-emu.cn)，路局客运段来自维基百科。")
+                    Text("车站数据来自 [rail.re](https://rail.re)，车型数据来自 [china-emu.cn](https://www.china-emu.cn)，路局数据来自维基百科。")
                 }
 
                 // 意见和建议
@@ -141,9 +171,9 @@ struct DomainSettingsView: View {
                         Text("RailLog 以 MIT 许可证开源，欢迎参与贡献。")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
-                        Link("GitHub 仓库", destination: URL(string: "https://github.com/mikewu597/RailLog")!)
+                        Link("GitHub 仓库", destination: URL(string: "https://github.com/MatrixEcho-AI/RailLog")!)
                             .font(.caption)
-                        Link("查看许可证 (MIT)", destination: URL(string: "https://github.com/mikewu597/RailLog/blob/main/LICENSE.md")!)
+                        Link("查看许可证 (MIT)", destination: URL(string: "https://github.com/MatrixEcho-AI/RailLog/blob/main/LICENSE.md")!)
                             .font(.caption)
                     }
                 }

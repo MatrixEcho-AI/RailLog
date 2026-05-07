@@ -23,7 +23,7 @@ final class DataBundleService {
     private var cachedModelsURL: URL { docsDir.appendingPathComponent("models.json") }
     private var cachedBranchesURL: URL { docsDir.appendingPathComponent("branches.json") }
 
-    private static let stationsAPI = URL(string: "https://api-raillog.matrixecho.cn/china_railway/station_name.json")!
+    private static let stationsAPI = URL(string: "https://api-raillog.matrixecho.cn/china_railway/stations.json")!
     private static let modelsAPI = URL(string: "https://api-raillog.matrixecho.cn/china_railway/models.json")!
     private static let branchesAPI = URL(string: "https://api-raillog.matrixecho.cn/china_railway/branches.json")!
 
@@ -55,6 +55,7 @@ final class DataBundleService {
             branchesUpdateDate = cachedModificationDate(cachedBranchesURL)
         } else if let bundled = loadBundledJSON([RailwayBureau].self, name: "branches") {
             branches = bundled
+            branchesUpdateDate = bundledModificationDate("branches")
         }
     }
 
@@ -120,6 +121,12 @@ final class DataBundleService {
 
     private func cachedModificationDate(_ url: URL) -> Date? {
         guard let attrs = try? fileManager.attributesOfItem(atPath: url.path) else { return nil }
+        return attrs[.modificationDate] as? Date
+    }
+
+    private func bundledModificationDate(_ name: String) -> Date? {
+        guard let url = Bundle.main.url(forResource: name, withExtension: "json"),
+              let attrs = try? fileManager.attributesOfItem(atPath: url.path) else { return nil }
         return attrs[.modificationDate] as? Date
     }
 }
