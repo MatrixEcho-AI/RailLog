@@ -96,22 +96,12 @@ struct LogListView: View {
                 } else {
                     List {
                         ForEach(filteredLogs) { log in
-                            ZStack {
-                                NavigationLink {
-                                    LogDetailView(log: log)
-                                } label: {
-                                    EmptyView()
-                                }
-                                .opacity(0)
-
-                                LogRow(log: log, preferTrainNumber: store.preferTrainNumber, hdrEnabled: store.hdrEnabled)
-                            }
-                            .listRowSeparator(.hidden)
-                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
-                            .listRowBackground(Color.clear)
-                        }
-                        .onDelete { offsets in
-                            if let idx = offsets.first { deleteTarget = filteredLogs[idx] }
+                            LogListRow(
+                                log: log,
+                                preferTrainNumber: store.preferTrainNumber,
+                                hdrEnabled: store.hdrEnabled,
+                                deleteTarget: $deleteTarget
+                            )
                         }
                     }
                     .listStyle(.plain)
@@ -133,6 +123,36 @@ struct LogListView: View {
                     let title = log.trainNumber.isEmpty ? log.emuNumber : log.trainNumber
                     Text("「\(title)」将被永久删除，不可恢复。")
                 }
+            }
+        }
+    }
+}
+
+struct LogListRow: View {
+    let log: TripLog
+    let preferTrainNumber: Bool
+    let hdrEnabled: Bool
+    @Binding var deleteTarget: TripLog?
+
+    var body: some View {
+        ZStack {
+            NavigationLink {
+                LogDetailView(log: log)
+            } label: {
+                EmptyView()
+            }
+            .opacity(0)
+
+            LogRow(log: log, preferTrainNumber: preferTrainNumber, hdrEnabled: hdrEnabled)
+        }
+        .listRowSeparator(.hidden)
+        .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+        .listRowBackground(Color.clear)
+        .swipeActions(edge: .trailing) {
+            Button(role: .destructive) {
+                deleteTarget = log
+            } label: {
+                Label("删除", systemImage: "trash")
             }
         }
     }
@@ -161,72 +181,89 @@ struct LogRow: View {
     }
 
     var body: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 4) {
-                    if log.isFavorite {
-                        Image(systemName: "heart.fill")
-                            .font(.caption2)
-                            .foregroundStyle(.red)
-                    }
-                    Text(primaryText)
-                        .font(.headline)
-                        .fontDesign(.monospaced)
-                }
-
-                if let secondary = secondaryText {
-                    Text(secondary)
-                        .font(.caption)
-                        .fontDesign(.monospaced)
-                        .foregroundStyle(.secondary)
-                }
-
-                HStack(spacing: 4) {
-                    Text(log.departureStation)
-                        .font(.subheadline)
-                    Text("→")
-                        .foregroundStyle(.secondary)
-                    Text(log.arrivalStation)
-                        .font(.subheadline)
-                }
-
-                if !log.bureau.isEmpty {
-                    Text("\(log.bureau) \(log.depot)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+        ZStack {
+            if hdrEnabled && colorScheme != .dark {
+                HDRMetalView(red: 1.1, green: 1.1, blue: 1.1)
+            } else {
+                Color(.systemBackground)
             }
 
-            Spacer()
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 4) {
+                        if log.isFavorite {
+                            if hdrEnabled {
+                                HDRMetalView(red: 1.3, green: 0, blue: 0)
+                                    .frame(width: 12, height: 12)
+                                    .mask {
+                                        Image(systemName: "heart.fill")
+                                            .font(.caption2)
+                                    }
+                            } else {
+                                Image(systemName: "heart.fill")
+                                    .font(.caption2)
+                                    .foregroundStyle(.red)
+                            }
+                        }
+                        Text(primaryText)
+                            .font(.headline)
+                            .fontDesign(.monospaced)
+                    }
 
-            VStack(alignment: .trailing, spacing: 4) {
-                Text(log.createdAt.zhDate)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    if let secondary = secondaryText {
+                        Text(secondary)
+                            .font(.caption)
+                            .fontDesign(.monospaced)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    HStack(spacing: 4) {
+                        Text(log.departureStation)
+                            .font(.subheadline)
+                        Text("→")
+                            .foregroundStyle(.secondary)
+                        Text(log.arrivalStation)
+                            .font(.subheadline)
+                    }
+
+                    if !log.bureau.isEmpty {
+                        Text("\(log.bureau) \(log.depot)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
 
                 Spacer()
 
-                if !log.carriage.isEmpty || !log.seat.isEmpty {
-                    HStack(spacing: 4) {
-                        Text("\(log.carriage)车\(log.seat)")
-                        Image(systemName: "chair.lounge")
-                    }
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                }
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(log.createdAt.zhDate)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
 
-                if !log.durationFormatted.isEmpty {
-                    HStack(spacing: 4) {
-                        Text(log.durationFormatted)
-                        Image(systemName: "clock")
+                    Spacer()
+
+                    if !log.carriage.isEmpty || !log.seat.isEmpty {
+                        HStack(spacing: 4) {
+                            Text("\(log.carriage)车\(log.seat)")
+                            Image(systemName: "chair.lounge")
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     }
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+
+                    if !log.durationFormatted.isEmpty {
+                        HStack(spacing: 4) {
+                            Text(log.durationFormatted)
+                            Image(systemName: "clock")
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
                 }
             }
+            .padding(12)
         }
-        .padding(12)
-        .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
         .shadow(color: colorScheme == .dark ? .white.opacity(0.15) : .black.opacity(0.15), radius: 4, y: 2)
     }
 }
