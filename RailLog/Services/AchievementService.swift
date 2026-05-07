@@ -46,16 +46,36 @@ final class AchievementService {
             id: "first_trip",
             title: "初出茅庐",
             description: "完成第一次运转记录"
+        ),
+        "5033": AchievementDef(
+            id: "5033",
+            title: "5033",
+            description: "乘坐 CR400BF-5033"
         )
     ]
 
     func reportAchievement(id: String, percentComplete: Double) {
-        guard authenticated else { return }
         let achievement = GKAchievement(identifier: id)
         achievement.percentComplete = percentComplete
         achievement.showsCompletionBanner = true
         GKAchievement.report([achievement]) { error in
             if let error { print("Achievement report error: \(error.localizedDescription)") }
+        }
+    }
+
+    func checkLog(_ log: TripLog, totalCount: Int) {
+        if totalCount >= 1 {
+            reportAchievement(id: "first_trip", percentComplete: 100)
+        }
+        if log.emuNumber == "CR400BF-5033" {
+            reportAchievement(id: "5033", percentComplete: 100)
+        }
+    }
+
+    func syncAll(logs: [TripLog]) {
+        let nonDrafts = logs.filter { !$0.isDraft }
+        for log in nonDrafts {
+            checkLog(log, totalCount: nonDrafts.count)
         }
     }
 

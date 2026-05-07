@@ -135,7 +135,7 @@ final class DataStore {
         drafts.removeAll { $0.id == draft.id }
         saveLogs()
         saveDrafts()
-        checkFirstTripAchievement()
+        syncAchievements(for: completed)
         Task { await cloudSync.pushOne(completed) }
     }
 
@@ -145,15 +145,13 @@ final class DataStore {
         newLog.modifiedAt = Date()
         logs.insert(newLog, at: 0)
         saveLogs()
-        checkFirstTripAchievement()
+        syncAchievements(for: newLog)
         Task { await cloudSync.pushOne(newLog) }
     }
 
-    private func checkFirstTripAchievement() {
+    private func syncAchievements(for log: TripLog) {
         let count = logs.filter { !$0.isDraft }.count
-        if count == 1 {
-            AchievementService.shared.reportAchievement(id: "first_trip", percentComplete: 100)
-        }
+        AchievementService.shared.checkLog(log, totalCount: count)
     }
 
     func updateLog(_ log: TripLog) {
@@ -188,6 +186,7 @@ final class DataStore {
             print("DataStore load error: \(error)")
         }
         cleanExpiredDrafts()
+        AchievementService.shared.syncAll(logs: logs)
     }
 
     private func saveLogs() {
