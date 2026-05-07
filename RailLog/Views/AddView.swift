@@ -3,6 +3,7 @@ import SwiftUI
 struct AddView: View {
     @Environment(DataStore.self) private var store
     @State private var showScanner = false
+    @State private var showEMUScanner = false
     @State private var showDraftPicker = false
     @State private var navigateToEdit: TripLog? = nil
     @State private var verifying = false
@@ -63,6 +64,23 @@ struct AddView: View {
                 }
                 .padding(.horizontal, 32)
 
+                // 大按钮：扫描车身编号
+                Button {
+                    showEMUScanner = true
+                } label: {
+                    VStack(spacing: 16) {
+                        Image(systemName: "camera.viewfinder")
+                            .font(.system(size: 60))
+                        Text("扫描车身编号")
+                            .font(.title2.bold())
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 200)
+                    .background(.blue, in: .rect(cornerRadius: 20))
+                    .foregroundStyle(.white)
+                }
+                .padding(.horizontal, 32)
+
                 // 小按钮：继续填写
                 if !store.drafts.isEmpty {
                     Button {
@@ -90,6 +108,22 @@ struct AddView: View {
                 ScannerView { scanned in
                     showScanner = false
                     verifying = true
+                    var draft = store.createDraft(from: scanned)
+                    Task {
+                        let result = await LocationVerifier.verify()
+                        draft.verifiedOnRailway = result.onRailway
+                        store.updateDraft(draft)
+                        verifying = false
+                        navigateToEdit = draft
+                    }
+                }
+            }
+            .sheet(isPresented: $showEMUScanner) {
+                EMUScannerView { numbers in
+                    showEMUScanner = false
+                    guard let emuNumber = numbers.first else { return }
+                    verifying = true
+                    let scanned = ScannedTripData(emuNumber: emuNumber, carriage: "", seat: "")
                     var draft = store.createDraft(from: scanned)
                     Task {
                         let result = await LocationVerifier.verify()
