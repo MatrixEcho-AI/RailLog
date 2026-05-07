@@ -142,6 +142,7 @@ struct LogRow: View {
     let log: TripLog
     let preferTrainNumber: Bool
     let hdrEnabled: Bool
+    @Environment(\.colorScheme) private var colorScheme
 
     private var primaryText: String {
         if preferTrainNumber {
@@ -225,8 +226,8 @@ struct LogRow: View {
             }
         }
         .padding(12)
-        .background(Color.white, in: RoundedRectangle(cornerRadius: 12))
-        .shadow(color: .black.opacity(0.15), radius: 4, y: 2)
+        .background(Color(.systemBackground), in: RoundedRectangle(cornerRadius: 12))
+        .shadow(color: colorScheme == .dark ? .white.opacity(0.15) : .black.opacity(0.15), radius: 4, y: 2)
     }
 }
 
