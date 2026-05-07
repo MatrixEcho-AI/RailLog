@@ -27,6 +27,20 @@ struct LogDetailView: View {
 
     var body: some View {
         List {
+            // 地图
+            if !log.departureStation.isEmpty, !log.arrivalStation.isEmpty {
+                Section {
+                    TripMapView(
+                        departureStation: log.departureStation,
+                        arrivalStation: log.arrivalStation,
+                        originStation: log.originStation,
+                        destinationStation: log.destinationStation
+                    )
+                    .listRowInsets(EdgeInsets())
+                    .listRowBackground(Color.clear)
+                }
+            }
+
             // 车次信息
             Section("列车信息") {
                 if !log.trainNumber.isEmpty {
