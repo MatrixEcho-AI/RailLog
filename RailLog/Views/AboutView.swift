@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AboutView: View {
     @Environment(DataStore.self) private var store
+    @State private var showGameCenter = false
     private var totalTrips: Int {
         store.logs.filter { !$0.isDraft }.count
     }
@@ -119,8 +120,30 @@ struct AboutView: View {
                     }
                 }
 
+                // Game Center 成就
+                Section {
+                    Button {
+                        showGameCenter = true
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "trophy.fill")
+                                .font(.title3)
+                                .foregroundStyle(.yellow)
+                                .frame(width: 32)
+                            Text("Game Center 成就")
+                                .font(.subheadline.weight(.medium))
+                            Spacer()
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+
             }
             .navigationTitle("统计")
+            .sheet(isPresented: $showGameCenter) {
+                GKGameCenterView()
+            }
         }
     }
 

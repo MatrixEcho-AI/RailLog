@@ -135,6 +135,7 @@ final class DataStore {
         drafts.removeAll { $0.id == draft.id }
         saveLogs()
         saveDrafts()
+        checkFirstTripAchievement()
         Task { await cloudSync.pushOne(completed) }
     }
 
@@ -144,7 +145,15 @@ final class DataStore {
         newLog.modifiedAt = Date()
         logs.insert(newLog, at: 0)
         saveLogs()
+        checkFirstTripAchievement()
         Task { await cloudSync.pushOne(newLog) }
+    }
+
+    private func checkFirstTripAchievement() {
+        let count = logs.filter { !$0.isDraft }.count
+        if count == 1 {
+            AchievementService.shared.reportAchievement(id: "first_trip", percentComplete: 100)
+        }
     }
 
     func updateLog(_ log: TripLog) {
