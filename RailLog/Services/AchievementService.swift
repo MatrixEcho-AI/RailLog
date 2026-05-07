@@ -51,6 +51,11 @@ final class AchievementService {
             id: "5033",
             title: "5033",
             description: "乘坐 CR400BF-5033"
+        ),
+        "450": AchievementDef(
+            id: "450",
+            title: "450",
+            description: "乘坐 CR450 系列动车组"
         )
     ]
 
@@ -69,6 +74,9 @@ final class AchievementService {
         }
         if log.emuNumber == "CR400BF-5033" {
             reportAchievement(id: "5033", percentComplete: 100)
+        }
+        if log.emuNumber.hasPrefix("CR450") {
+            reportAchievement(id: "450", percentComplete: 100)
         }
     }
 
