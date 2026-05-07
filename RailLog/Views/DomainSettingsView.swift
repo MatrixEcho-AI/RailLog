@@ -27,6 +27,16 @@ struct DomainSettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                // 显示
+                Section {
+                    Toggle("HDR 显示", isOn: Binding(
+                        get: { store.hdrEnabled },
+                        set: { store.hdrEnabled = $0 }
+                    ))
+                } footer: {
+                    Text("在支持 HDR 的设备上使用高动态范围渲染，卡片背景更亮。")
+                }
+
                 // 主项
                 Section {
                     Picker("主项", selection: Binding(

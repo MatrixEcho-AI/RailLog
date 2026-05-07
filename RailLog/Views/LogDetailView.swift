@@ -303,13 +303,22 @@ private struct MatchingLogsSheet: View {
         NavigationStack {
             List {
                 ForEach(logs) { log in
-                    NavigationLink {
-                        LogDetailView(log: log)
-                    } label: {
-                        LogRow(log: log, preferTrainNumber: store.preferTrainNumber)
+                    ZStack {
+                        NavigationLink {
+                            LogDetailView(log: log)
+                        } label: {
+                            EmptyView()
+                        }
+                        .opacity(0)
+
+                        LogRow(log: log, preferTrainNumber: store.preferTrainNumber, hdrEnabled: store.hdrEnabled)
                     }
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                    .listRowBackground(Color.clear)
                 }
             }
+            .listStyle(.plain)
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

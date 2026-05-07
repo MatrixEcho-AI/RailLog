@@ -96,11 +96,19 @@ struct LogListView: View {
                 } else {
                     List {
                         ForEach(filteredLogs) { log in
-                            NavigationLink {
-                                LogDetailView(log: log)
-                            } label: {
-                                LogRow(log: log, preferTrainNumber: store.preferTrainNumber)
+                            ZStack {
+                                NavigationLink {
+                                    LogDetailView(log: log)
+                                } label: {
+                                    EmptyView()
+                                }
+                                .opacity(0)
+
+                                LogRow(log: log, preferTrainNumber: store.preferTrainNumber, hdrEnabled: store.hdrEnabled)
                             }
+                            .listRowSeparator(.hidden)
+                            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                            .listRowBackground(Color.clear)
                         }
                         .onDelete { offsets in
                             if let idx = offsets.first { deleteTarget = filteredLogs[idx] }
@@ -133,6 +141,7 @@ struct LogListView: View {
 struct LogRow: View {
     let log: TripLog
     let preferTrainNumber: Bool
+    let hdrEnabled: Bool
 
     private var primaryText: String {
         if preferTrainNumber {
@@ -151,57 +160,73 @@ struct LogRow: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                if log.isFavorite {
-                    Image(systemName: "heart.fill")
-                        .font(.caption2)
-                        .foregroundStyle(.red)
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 4) {
+                    if log.isFavorite {
+                        Image(systemName: "heart.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.red)
+                    }
+                    Text(primaryText)
+                        .font(.headline)
+                        .fontDesign(.monospaced)
                 }
-                Text(primaryText)
-                    .font(.headline)
-                    .fontDesign(.monospaced)
-                if !log.carriage.isEmpty || !log.seat.isEmpty {
-                    Text("\(log.carriage)车\(log.seat)")
-                        .font(.subheadline)
+
+                if let secondary = secondaryText {
+                    Text(secondary)
+                        .font(.caption)
+                        .fontDesign(.monospaced)
                         .foregroundStyle(.secondary)
                 }
-                Spacer()
-                Text(log.createdAt.zhDate)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
 
-            if let secondary = secondaryText {
-                Text(secondary)
-                    .font(.caption)
-                    .fontDesign(.monospaced)
-                    .foregroundStyle(.secondary)
-            }
+                HStack(spacing: 4) {
+                    Text(log.departureStation)
+                        .font(.subheadline)
+                    Text("→")
+                        .foregroundStyle(.secondary)
+                    Text(log.arrivalStation)
+                        .font(.subheadline)
+                }
 
-            HStack {
-                Text(log.departureStation)
-                    .font(.subheadline)
-                Text("→")
-                    .foregroundStyle(.secondary)
-                Text(log.arrivalStation)
-                    .font(.subheadline)
-
-                if !log.durationFormatted.isEmpty {
-                    Spacer()
-                    Label(log.durationFormatted, systemImage: "clock")
+                if !log.bureau.isEmpty {
+                    Text("\(log.bureau) \(log.depot)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
 
-            if !log.bureau.isEmpty {
-                Text("\(log.bureau) \(log.depot)")
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 4) {
+                Text(log.createdAt.zhDate)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                Spacer()
+
+                if !log.carriage.isEmpty || !log.seat.isEmpty {
+                    HStack(spacing: 4) {
+                        Text("\(log.carriage)车\(log.seat)")
+                        Image(systemName: "chair.lounge")
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+
+                if !log.durationFormatted.isEmpty {
+                    HStack(spacing: 4) {
+                        Text(log.durationFormatted)
+                        Image(systemName: "clock")
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
             }
         }
-        .padding(.vertical, 4)
+        .padding(12)
+        .background(Color.white, in: RoundedRectangle(cornerRadius: 12))
+        .shadow(color: .black.opacity(0.15), radius: 4, y: 2)
     }
 }
 

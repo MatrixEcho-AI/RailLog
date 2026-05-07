@@ -18,6 +18,16 @@ final class DataStore {
     var branchCount: Int { bundleService.branchCount }
     var depotCount: Int { bundleService.depotCount }
 
+    /// true = 开启 HDR 显示
+    var hdrEnabled: Bool {
+        get { access(keyPath: \.hdrEnabled); return UserDefaults.standard.bool(forKey: "hdrEnabled") }
+        set {
+            withMutation(keyPath: \.hdrEnabled) {
+                UserDefaults.standard.set(newValue, forKey: "hdrEnabled")
+            }
+        }
+    }
+
     /// true = 主项显示车次, false = 主项显示动车组编号
     var preferTrainNumber: Bool {
         get { access(keyPath: \.preferTrainNumber); return UserDefaults.standard.bool(forKey: "preferTrainNumber") }
