@@ -182,6 +182,20 @@ struct DomainSettingsView: View {
                             .font(.caption)
                     }
                 }
+
+                // 备案信息
+                Section {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("粤ICP备2026018443号-4A")
+                            .font(.caption)
+                        Text("深圳回响矩阵人工智能有限公司")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Text("版本 1.0 · 域版本 \(BuildInfo.commitHash)")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
             .navigationTitle("域设置")
             .navigationBarTitleDisplayMode(.inline)
