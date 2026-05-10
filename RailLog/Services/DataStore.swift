@@ -28,6 +28,15 @@ final class DataStore {
         }
     }
 
+    var privacyPolicyAccepted: Bool {
+        get { access(keyPath: \.privacyPolicyAccepted); return UserDefaults.standard.bool(forKey: "privacyPolicyAccepted") }
+        set {
+            withMutation(keyPath: \.privacyPolicyAccepted) {
+                UserDefaults.standard.set(newValue, forKey: "privacyPolicyAccepted")
+            }
+        }
+    }
+
     /// true = 主项显示车次, false = 主项显示动车组编号
     var preferTrainNumber: Bool {
         get { access(keyPath: \.preferTrainNumber); return UserDefaults.standard.bool(forKey: "preferTrainNumber") }

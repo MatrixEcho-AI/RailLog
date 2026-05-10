@@ -3,8 +3,17 @@ import SwiftUI
 struct ContentView: View {
     @State private var store = DataStore()
     @State private var selectedTab = 0
+    @State private var showPrivacyPolicy = false
     @State private var showSafetyEducation = false
     @Environment(\.scenePhase) private var scenePhase
+
+    private func checkPrivacyThenSafety() {
+        guard store.privacyPolicyAccepted else {
+            showPrivacyPolicy = true
+            return
+        }
+        showSafetyEducation = store.needsSafetyEducation(for: store.currentDomainID)
+    }
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -30,6 +39,14 @@ struct ContentView: View {
         }
         .environment(store)
         .environment(\.locale, Locale(identifier: "zh_CN"))
+        .fullScreenCover(isPresented: $showPrivacyPolicy) {
+            PrivacyPolicyView(isMandatory: true) {
+                store.privacyPolicyAccepted = true
+                showPrivacyPolicy = false
+                showSafetyEducation = store.needsSafetyEducation(for: store.currentDomainID)
+            }
+            .interactiveDismissDisabled()
+        }
         .fullScreenCover(isPresented: $showSafetyEducation) {
             SafetyEducationView(domain: store.currentDomain) {
                 store.markSafetyEducationCompleted(for: store.currentDomainID)
@@ -38,12 +55,14 @@ struct ContentView: View {
             .interactiveDismissDisabled()
         }
         .onAppear {
-            showSafetyEducation = store.needsSafetyEducation(for: store.currentDomainID)
+            checkPrivacyThenSafety()
         }
         .onChange(of: store.currentDomainID) { _, newID in
+            guard store.privacyPolicyAccepted else { return }
             showSafetyEducation = store.needsSafetyEducation(for: newID)
         }
         .onChange(of: store.safetyRelearnToken) {
+            guard store.privacyPolicyAccepted else { return }
             showSafetyEducation = store.needsSafetyEducation(for: store.currentDomainID)
         }
         .onChange(of: scenePhase) { _, newPhase in

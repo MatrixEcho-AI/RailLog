@@ -117,19 +117,19 @@
 
 /* Begin PBXShellScriptBuildPhase section */
 		A1B2C3D4E5F6000102030405 /* Inject Git Hash */ = {
-		isa = PBXShellScriptBuildPhase;
-		buildActionMask = 2147483647;
-		files = (
-		);
-		inputPaths = (
-		);
-		name = "Inject Git Hash";
-		outputPaths = (
-		);
-		runOnlyForDeploymentPostprocessing = 0;
-		shellPath = /bin/sh;
-		shellScript = "hash=$(cd \"$SRCROOT\" && git rev-parse --short HEAD 2>/dev/null || echo \"unknown\")\nplist=\"$TARGET_BUILD_DIR/$INFOPLIST_PATH\"\nif [ -f \"$plist\" ]; then\n\t/usr/libexec/PlistBuddy -c \"Add :GitCommitHash string $hash\" \"$plist\" 2>/dev/null || /usr/libexec/PlistBuddy -c \"Set :GitCommitHash $hash\" \"$plist\"\nfi\n";
-	};
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Inject Git Hash";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "hash=$(cd \"$SRCROOT\" && git rev-parse --short HEAD 2>/dev/null || echo \"unknown\")\nplist=\"$TARGET_BUILD_DIR/$INFOPLIST_PATH\"\nif [ -f \"$plist\" ]; then\n\t/usr/libexec/PlistBuddy -c \"Add :GitCommitHash string $hash\" \"$plist\" 2>/dev/null || /usr/libexec/PlistBuddy -c \"Set :GitCommitHash $hash\" \"$plist\"\nfi\n";
+		};
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */

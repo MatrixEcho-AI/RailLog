@@ -5,6 +5,7 @@ struct DomainSettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var refreshing = false
     @State private var exportURL: URL?
+    @State private var showPrivacyPolicy = false
 
     private var syncStatusText: String {
         if store.cloudSync.syncInProgress {
@@ -160,6 +161,17 @@ struct DomainSettingsView: View {
                             .font(.caption)
                         Link("i@hyp.ink", destination: URL(string: "mailto:i@hyp.ink")!)
                             .font(.caption)
+                        Text("隐私政策")
+                            .font(.subheadline)
+                            .padding(.top, 8)
+                        Button {
+                            showPrivacyPolicy = true
+                        } label: {
+                            Text("查看隐私政策")
+                                .font(.caption)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.tint)
                     }
                 }
 
@@ -207,6 +219,9 @@ struct DomainSettingsView: View {
             .sheet(item: $exportURL) { url in
                 ActivityViewController(activityItems: [url])
                     .presentationDetents([.medium, .large])
+            }
+            .sheet(isPresented: $showPrivacyPolicy) {
+                PrivacyPolicyView(isMandatory: false)
             }
         }
     }
