@@ -52,10 +52,10 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 040C23032FA9086300E23CAA /* Build configuration list for PBXNativeTarget "RailLog" */;
 			buildPhases = (
+				A1B2C3D4E5F6000102030405 /* Inject Build Time */,
 				040C22F42FA9086000E23CAA /* Sources */,
 				040C22F52FA9086000E23CAA /* Frameworks */,
 				040C22F62FA9086000E23CAA /* Resources */,
-				A1B2C3D4E5F6000102030405 /* Inject Git Hash */,
 			);
 			buildRules = (
 			);
@@ -116,19 +116,20 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		A1B2C3D4E5F6000102030405 /* Inject Git Hash */ = {
+		A1B2C3D4E5F6000102030405 /* Inject Build Time */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			inputPaths = (
 			);
-			name = "Inject Git Hash";
+			name = "Inject Build Time";
 			outputPaths = (
+				"${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}/build_time.txt",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "hash=$(cd \"$SRCROOT\" && git rev-parse --short HEAD 2>/dev/null || echo \"unknown\")\nplist=\"$TARGET_BUILD_DIR/$INFOPLIST_PATH\"\nif [ -f \"$plist\" ]; then\n\t/usr/libexec/PlistBuddy -c \"Add :GitCommitHash string $hash\" \"$plist\" 2>/dev/null || /usr/libexec/PlistBuddy -c \"Set :GitCommitHash $hash\" \"$plist\"\nfi\n";
+			shellScript = "dest=\"${TARGET_BUILD_DIR}/${FULL_PRODUCT_NAME}/build_time.txt\"\nmkdir -p \"$(dirname \"$dest\")\" 2>/dev/null\necho \"$(date)\" > \"$dest\" 2>/dev/null || true\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

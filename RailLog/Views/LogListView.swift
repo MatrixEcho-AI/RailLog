@@ -236,7 +236,7 @@ struct LogRow: View {
                 Spacer()
 
                 VStack(alignment: .trailing, spacing: 4) {
-                    Text(log.createdAt.zhDate)
+                    Text((log.departureTime ?? log.createdAt).zhDate)
                         .font(.caption)
                         .foregroundStyle(.secondary)
 

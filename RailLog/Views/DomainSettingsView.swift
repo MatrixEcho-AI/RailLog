@@ -203,7 +203,7 @@ struct DomainSettingsView: View {
                         Text("深圳回响矩阵人工智能有限公司")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
-                        Text("版本 1.0 · 域版本 \(BuildInfo.commitHash)")
+                        Text("版本 1.0 · 编译时间 \(BuildInfo.buildTime)")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }
