@@ -3,6 +3,21 @@ import StoreKit
 @Observable
 final class StoreManager {
     private(set) var donationProduct: Product?
+    private var updatesTask: Task<Void, Never>?
+
+    init() {
+        updatesTask = Task.detached {
+            for await result in Transaction.updates {
+                if case .verified(let transaction) = result {
+                    await transaction.finish()
+                }
+            }
+        }
+    }
+
+    deinit {
+        updatesTask?.cancel()
+    }
 
     func loadDonationProduct() async {
         do {
@@ -18,8 +33,12 @@ final class StoreManager {
         do {
             let result = try await product.purchase()
             switch result {
-            case .success:
-                return true
+            case .success(let verification):
+                if case .verified(let transaction) = verification {
+                    await transaction.finish()
+                    return true
+                }
+                return false
             case .userCancelled, .pending:
                 return false
             @unknown default:
