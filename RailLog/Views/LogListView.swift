@@ -40,9 +40,9 @@ struct LogListView: View {
 
         switch sortOrder {
         case .newest:
-            result.sort { $0.createdAt > $1.createdAt }
+            result.sort { ($0.departureTime ?? $0.createdAt) > ($1.departureTime ?? $1.createdAt) }
         case .oldest:
-            result.sort { $0.createdAt < $1.createdAt }
+            result.sort { ($0.departureTime ?? $0.createdAt) < ($1.departureTime ?? $1.createdAt) }
         case .longest:
             result.sort { ($0.duration ?? 0) > ($1.duration ?? 0) }
         }
