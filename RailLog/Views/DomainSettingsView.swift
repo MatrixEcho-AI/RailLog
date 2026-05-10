@@ -1,10 +1,13 @@
 import SwiftUI
+import StoreKit
 
 struct DomainSettingsView: View {
     @Environment(DataStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @State private var refreshing = false
     @State private var exportURL: URL?
+    @State private var storeManager = StoreManager()
+    @State private var showThanks = false
     @State private var showPrivacyPolicy = false
 
     private var syncStatusText: String {
@@ -195,6 +198,28 @@ struct DomainSettingsView: View {
                     }
                 }
 
+                // 赞助
+                Section {
+                    Button {
+                        Task {
+                            if await storeManager.purchaseDonation() {
+                                showThanks = true
+                            }
+                        }
+                    } label: {
+                        Label("赞助开发者", systemImage: "heart.fill")
+                            .frame(maxWidth: .infinity)
+                            .foregroundStyle(.red)
+                    }
+                    .disabled(storeManager.donationProduct == nil)
+                } footer: {
+                    if let product = storeManager.donationProduct {
+                        Text("当前价格：\(product.displayPrice)，一次性赞助，不会获得额外功能。感谢你的支持！")
+                    } else {
+                        Text("加载中…")
+                    }
+                }
+
                 // 备案信息
                 Section {
                     VStack(alignment: .leading, spacing: 4) {
@@ -211,6 +236,14 @@ struct DomainSettingsView: View {
             }
             .navigationTitle("域设置")
             .navigationBarTitleDisplayMode(.inline)
+            .task {
+                await storeManager.loadDonationProduct()
+            }
+            .alert("感谢支持！", isPresented: $showThanks) {
+                Button("好的") { }
+            } message: {
+                Text("感谢你对 RailLog 的支持，我们会继续努力！")
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("完成") { dismiss() }
