@@ -4,6 +4,7 @@ struct AddView: View {
     @Environment(DataStore.self) private var store
     @State private var showScanner = false
     @State private var showEMUScanner = false
+    @State private var showManualEntry = false
     @State private var showDraftPicker = false
     @State private var navigateToEdit: TripLog? = nil
     @State private var verifying = false
@@ -81,6 +82,14 @@ struct AddView: View {
                 }
                 .padding(.horizontal, 32)
 
+                // 文字按钮：手动输入车身编号
+                Button {
+                    showManualEntry = true
+                } label: {
+                    Label("手动输入车身编号", systemImage: "keyboard")
+                        .font(.subheadline)
+                }
+
                 // 小按钮：继续填写
                 if !store.drafts.isEmpty {
                     Button {
@@ -122,16 +131,13 @@ struct AddView: View {
                 EMUScannerView { numbers in
                     showEMUScanner = false
                     guard let emuNumber = numbers.first else { return }
-                    verifying = true
-                    let scanned = ScannedTripData(emuNumber: emuNumber, carriage: "", seat: "")
-                    var draft = store.createDraft(from: scanned)
-                    Task {
-                        let result = await LocationVerifier.verify()
-                        draft.verifiedOnRailway = result.onRailway
-                        store.updateDraft(draft)
-                        verifying = false
-                        navigateToEdit = draft
-                    }
+                    startDraft(emuNumber: emuNumber)
+                }
+            }
+            .sheet(isPresented: $showManualEntry) {
+                ManualEMUEntryView { emuNumber in
+                    showManualEntry = false
+                    startDraft(emuNumber: emuNumber)
                 }
             }
             .sheet(isPresented: $showDraftPicker) {
@@ -148,6 +154,77 @@ struct AddView: View {
             }
             .navigationDestination(item: $navigateToEdit) { draft in
                 TripEditView(draft: draft)
+            }
+        }
+    }
+
+    /// 与扫码完成一致的流程：建草稿 → 位置验证 → 进入填写
+    private func startDraft(emuNumber: String) {
+        verifying = true
+        let scanned = ScannedTripData(emuNumber: emuNumber, carriage: "", seat: "")
+        var draft = store.createDraft(from: scanned)
+        Task {
+            let result = await LocationVerifier.verify()
+            draft.verifiedOnRailway = result.onRailway
+            store.updateDraft(draft)
+            verifying = false
+            navigateToEdit = draft
+        }
+    }
+}
+
+/// 手动输入车身编号：选择车型 + 输入四位数字
+struct ManualEMUEntryView: View {
+    @Environment(\.dismiss) private var dismiss
+    let onConfirm: (String) -> Void
+
+    @State private var selectedCode = ""
+    @State private var number = ""
+
+    private var isValid: Bool {
+        !selectedCode.isEmpty && number.count == 4
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                HStack(spacing: 8) {
+                    Menu {
+                        ForEach(trainModels) { model in
+                            Button(model.name) {
+                                selectedCode = model.code
+                            }
+                        }
+                    } label: {
+                        Text(selectedCode.isEmpty ? "请选择" : selectedCode)
+                            .fontDesign(.monospaced)
+                            .foregroundStyle(selectedCode.isEmpty ? Color.secondary : Color.primary)
+                    }
+
+                    Text("-")
+                        .foregroundStyle(.secondary)
+
+                    TextField("四位数字编号", text: $number)
+                        .keyboardType(.numberPad)
+                        .fontDesign(.monospaced)
+                        .multilineTextAlignment(.leading)
+                        .onChange(of: number) { _, newValue in
+                            number = String(newValue.filter(\.isNumber).prefix(4))
+                        }
+                }
+            }
+            .navigationTitle("手动输入车身编号")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("确定") {
+                        onConfirm("\(selectedCode)-\(number)")
+                    }
+                    .disabled(!isValid)
+                }
             }
         }
     }
