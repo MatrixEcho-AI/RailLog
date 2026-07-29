@@ -57,8 +57,12 @@ struct TripEditView: View {
         return Date.distantPast ... upper
     }
 
+    // 始发 <= 出发; 到达 - 48h <= 出发
     private var departureRange: ClosedRange<Date> {
-        let lower = log.originTime ?? Date.distantPast
+        var lower = log.originTime ?? Date.distantPast
+        if let arr = log.arrivalTime {
+            lower = max(lower, arr.addingTimeInterval(-maxTripDuration))
+        }
         return lower ... Date.distantFuture
     }
 
