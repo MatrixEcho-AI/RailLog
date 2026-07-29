@@ -82,25 +82,30 @@ struct AddView: View {
                 }
                 .padding(.horizontal, 32)
 
-                // 文字按钮：手动输入车身编号
-                Button {
-                    showManualEntry = true
-                } label: {
-                    Label("手动输入车身编号", systemImage: "keyboard")
-                        .font(.subheadline)
-                }
-
-                // 小按钮：继续填写
-                if !store.drafts.isEmpty {
+                // 手动输入 + 草稿
+                HStack(spacing: 12) {
                     Button {
-                        store.cleanExpiredDrafts()
-                        showDraftPicker = true
+                        showManualEntry = true
                     } label: {
-                        Label("继续填写 (\(store.drafts.count) 个草稿)", systemImage: "doc.text")
+                        Label("手动输入", systemImage: "keyboard")
                             .font(.subheadline)
+                            .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
+
+                    if !store.drafts.isEmpty {
+                        Button {
+                            store.cleanExpiredDrafts()
+                            showDraftPicker = true
+                        } label: {
+                            Label("\(store.drafts.count) 个草稿", systemImage: "doc.text")
+                                .font(.subheadline)
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                    }
                 }
+                .padding(.horizontal, 32)
 
                 Spacer()
             }
