@@ -22,7 +22,6 @@ struct TripEditView: View {
     @State private var showExtraStations = false
     @State private var reVerifying = false
 
-    private var now: Date { Date() }
     private let maxTripDuration: TimeInterval = 48 * 3600
 
     private var canEditStationTime: Bool { isDraftMode }
@@ -34,7 +33,6 @@ struct TripEditView: View {
     private var canFinalize: Bool {
         guard canSaveAsDraft else { return false }
         guard log.departureTime != nil, log.arrivalTime != nil else { return false }
-        guard let dep = log.departureTime, dep <= now else { return false }
         return true
     }
 
@@ -53,15 +51,15 @@ struct TripEditView: View {
         return ""
     }
 
-    // 始发 <= 出发 < now
+    // 始发 <= 出发
     private var originRange: ClosedRange<Date> {
-        let upper = log.departureTime ?? now
+        let upper = log.departureTime ?? Date.distantFuture
         return Date.distantPast ... upper
     }
 
     private var departureRange: ClosedRange<Date> {
         let lower = log.originTime ?? Date.distantPast
-        return lower ... now
+        return lower ... Date.distantFuture
     }
 
     // 出发 <= 到达 <= 终到; 到达 <= 出发 + 48h
