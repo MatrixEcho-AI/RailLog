@@ -3,9 +3,11 @@ import AVFoundation
 
 struct ScannerView: View {
     let onScan: (ScannedTripData) -> Void
+    var onEncrypted: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
     @State private var showError = false
     @State private var errorMessage = ""
+    @State private var showEncryptedAlert = false
 
     var body: some View {
         NavigationStack {
@@ -14,6 +16,8 @@ struct ScannerView: View {
                 case .success(let urlString):
                     if let data = QRCodeParser.parse(urlString) {
                         onScan(data)
+                    } else if QRCodeParser.isEncryptedCode(urlString) {
+                        showEncryptedAlert = true
                     } else {
                         errorMessage = "无法识别该二维码中的列车信息：\(urlString)"
                         showError = true
@@ -35,6 +39,15 @@ struct ScannerView: View {
                 Button("确定") { dismiss() }
             } message: {
                 Text(errorMessage)
+            }
+            .alert("加密畅行码", isPresented: $showEncryptedAlert) {
+                Button("手动输入") {
+                    dismiss()
+                    onEncrypted?()
+                }
+                Button("取消", role: .cancel) { dismiss() }
+            } message: {
+                Text("该畅行码内容已加密，无法直接读取列车信息，请使用手动输入。")
             }
         }
     }

@@ -28,6 +28,14 @@ enum QRCodeParser {
         return ScannedTripData(emuNumber: emuNumber, carriage: carriage, seat: seat)
     }
 
+    /// 是否为加密畅行码（c 参数为服务端令牌，无法本地解析）
+    static func isEncryptedCode(_ urlString: String) -> Bool {
+        guard let url = URL(string: urlString),
+              let host = url.host?.lowercased(),
+              host.hasSuffix("12306.cn") else { return false }
+        return url.path.contains("/tservice/qr")
+    }
+
     /// 尝试从字符串中提取列车信息（支持部分匹配）
     static func fuzzyParse(_ text: String) -> ScannedTripData? {
         if let result = parse(text) { return result }

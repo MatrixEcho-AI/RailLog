@@ -10,6 +10,7 @@ struct AddView: View {
     @State private var verifying = false
     @State private var showDomainPicker = false
     @State private var showDomainSettings = false
+    @State private var openManualAfterScanner = false
 
     var body: some View {
         NavigationStack {
@@ -118,8 +119,13 @@ struct AddView: View {
             }
             }
             .navigationTitle("新运转")
-            .sheet(isPresented: $showScanner) {
-                ScannerView { scanned in
+            .sheet(isPresented: $showScanner, onDismiss: {
+                if openManualAfterScanner {
+                    openManualAfterScanner = false
+                    showManualEntry = true
+                }
+            }) {
+                ScannerView(onScan: { scanned in
                     showScanner = false
                     verifying = true
                     var draft = store.createDraft(from: scanned)
@@ -130,7 +136,9 @@ struct AddView: View {
                         verifying = false
                         navigateToEdit = draft
                     }
-                }
+                }, onEncrypted: {
+                    openManualAfterScanner = true
+                })
             }
             .sheet(isPresented: $showEMUScanner) {
                 EMUScannerView { numbers in
