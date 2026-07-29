@@ -87,10 +87,10 @@
 				};
 			};
 			buildConfigurationList = 040C22F32FA9086000E23CAA /* Build configuration list for PBXProject "RailLog" */;
-			developmentRegion = en;
+			developmentRegion = "zh-Hans";
 			hasScannedForEncodings = 0;
 			knownRegions = (
-				en,
+				"zh-Hans",
 				Base,
 			);
 			mainGroup = 040C22EF2FA9086000E23CAA;
