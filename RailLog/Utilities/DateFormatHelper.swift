@@ -9,8 +9,12 @@ extension Date {
         formatted(Date.FormatStyle(date: .long, time: .omitted).locale(Locale(identifier: "zh_CN")))
     }
 
+    /// 24 小时制、小时分钟均补零两位，如 "08:05"
     var zhTime: String {
-        formatted(Date.FormatStyle(date: .omitted, time: .shortened).locale(Locale(identifier: "zh_CN")))
+        let df = DateFormatter()
+        df.locale = Locale(identifier: "zh_CN")
+        df.dateFormat = "HH:mm"
+        return df.string(from: self)
     }
 
     var zhRelative: String {

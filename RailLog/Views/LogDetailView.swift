@@ -6,12 +6,8 @@ struct LogDetailView: View {
     @State var log: TripLog
     @State private var showEdit = false
     @State private var showDeleteConfirm = false
-    @State private var showTrainLogs = false
-    @State private var showEMULogs = false
+    @State private var matchingRequest: MatchingLogsRequest?
     @State private var passError: String?
-    @State private var matchingTitle = ""
-    @State private var matchingLogs: [TripLog] = []
-    @State private var showMatchingLogs = false
     @Environment(\.dismiss) private var dismiss
 
     private var walletButtonState: WalletButtonState {
@@ -43,7 +39,10 @@ struct LogDetailView: View {
             Section("列车信息") {
                 if !log.trainNumber.isEmpty {
                     Button {
-                        showTrainLogs = true
+                        matchingRequest = MatchingLogsRequest(
+                            title: "车次 \(log.trainNumber)",
+                            logs: store.logs.filter { $0.trainNumber == log.trainNumber }
+                        )
                     } label: {
                         HStack {
                             Text("车次")
@@ -60,7 +59,10 @@ struct LogDetailView: View {
                 }
                 if !log.emuNumber.isEmpty {
                     Button {
-                        showEMULogs = true
+                        matchingRequest = MatchingLogsRequest(
+                            title: "动车组 \(log.emuNumber)",
+                            logs: store.logs.filter { $0.emuNumber == log.emuNumber }
+                        )
                     } label: {
                         HStack {
                             Text("动车组")
@@ -81,24 +83,9 @@ struct LogDetailView: View {
                 DetailRow(label: "运转时长", value: log.durationFormatted)
             }
 
-            // 站点信息
+            // 站点信息（时间轴）
             Section("站点信息") {
-                DetailRow(label: "始发站", value: log.originStation) { showStationLogs(log.originStation) }
-                if let t = log.originTime {
-                    DetailRow(label: "始发时间", value: t.zhDateTime)
-                }
-                DetailRow(label: "出发站", value: log.departureStation) { showStationLogs(log.departureStation) }
-                if let t = log.departureTime {
-                    DetailRow(label: "出发时间", value: t.zhDateTime)
-                }
-                DetailRow(label: "到达站", value: log.arrivalStation) { showStationLogs(log.arrivalStation) }
-                if let t = log.arrivalTime {
-                    DetailRow(label: "到达时间", value: t.zhDateTime)
-                }
-                DetailRow(label: "终到站", value: log.destinationStation) { showStationLogs(log.destinationStation) }
-                if let t = log.destinationTime {
-                    DetailRow(label: "终到时间", value: t.zhDateTime)
-                }
+                stationTimeline
             }
 
             // 备注
@@ -119,9 +106,13 @@ struct LogDetailView: View {
                 }
             }
 
-            // 操作
+            // 钱包
             Section {
                 walletButton
+            }
+
+            // 操作
+            Section {
                 Button("编辑此日志") { showEdit = true }
                 Button("删除此日志", role: .destructive) {
                     showDeleteConfirm = true
@@ -160,14 +151,8 @@ struct LogDetailView: View {
             let title = log.trainNumber.isEmpty ? log.emuNumber : log.trainNumber
             Text("「\(title)」将被永久删除，不可恢复。")
         }
-        .sheet(isPresented: $showTrainLogs) {
-            MatchingLogsSheet(title: "车次 \(log.trainNumber)", logs: store.logs.filter { $0.trainNumber == log.trainNumber })
-        }
-        .sheet(isPresented: $showEMULogs) {
-            MatchingLogsSheet(title: "动车组 \(log.emuNumber)", logs: store.logs.filter { $0.emuNumber == log.emuNumber })
-        }
-        .sheet(isPresented: $showMatchingLogs) {
-            MatchingLogsSheet(title: matchingTitle, logs: matchingLogs)
+        .sheet(item: $matchingRequest) { request in
+            MatchingLogsSheet(title: request.title, logs: request.logs)
         }
         .alert("无法添加到钱包", isPresented: .init(
             get: { passError != nil },
@@ -179,30 +164,192 @@ struct LogDetailView: View {
         }
     }
 
+    // MARK: - 站点时间轴
+
+    private struct TimelinePoint {
+        let role: String      // 始发/出发/到达/终到（合并时为 始发、出发 / 到达、终到）
+        let station: String
+        let time: Date?
+        /// 独立显示的始发/终到节点（未与出发/到达合并）——灰点、灰 badge
+        let isTerminus: Bool
+    }
+
+    /// 按分钟精度比较两个时间（DatePicker 的值可能带不同的秒数）；同为 nil 视为相同
+    private func sameMinute(_ a: Date?, _ b: Date?) -> Bool {
+        guard let a, let b else { return a == b }
+        let cal = Calendar.current
+        let keys: Set<Calendar.Component> = [.year, .month, .day, .hour, .minute]
+        return cal.dateComponents(keys, from: a) == cal.dateComponents(keys, from: b)
+    }
+
+    private var timelinePoints: [TimelinePoint] {
+        // 始发与出发同站且同一时间 → 合并为"始发、出发"；到达与终到同理
+        let mergeOrigin = !log.originStation.isEmpty
+            && log.originStation == log.departureStation
+            && sameMinute(log.originTime, log.departureTime)
+        let mergeDestination = !log.destinationStation.isEmpty
+            && log.destinationStation == log.arrivalStation
+            && sameMinute(log.arrivalTime, log.destinationTime)
+
+        var points: [TimelinePoint] = []
+        if !log.originStation.isEmpty {
+            points.append(TimelinePoint(
+                role: mergeOrigin ? "始发、出发" : "始发",
+                station: log.originStation,
+                time: log.originTime,
+                isTerminus: !mergeOrigin
+            ))
+        }
+        if !mergeOrigin {
+            points.append(TimelinePoint(role: "出发", station: log.departureStation, time: log.departureTime, isTerminus: false))
+        }
+        if !mergeDestination {
+            points.append(TimelinePoint(role: "到达", station: log.arrivalStation, time: log.arrivalTime, isTerminus: false))
+        }
+        if !log.destinationStation.isEmpty {
+            points.append(TimelinePoint(
+                role: mergeDestination ? "到达、终到" : "终到",
+                station: log.destinationStation,
+                time: log.destinationTime,
+                isTerminus: !mergeDestination
+            ))
+        }
+        return points
+    }
+
+    /// 时间轴顶部的初始日期（第一个有时间的节点）
+    private var timelineStartDate: Date? {
+        timelinePoints.first { $0.time != nil }?.time
+    }
+
+    /// 节点相对初始日期的跨日偏移（0=当天，1=次日…）；无时间或早于起始日时为 0
+    private func timelineDayOffset(for point: TimelinePoint) -> Int {
+        guard let t = point.time, let base = timelineStartDate else { return 0 }
+        let cal = Calendar.current
+        let days = cal.dateComponents([.day], from: cal.startOfDay(for: base), to: cal.startOfDay(for: t)).day ?? 0
+        return max(days, 0)
+    }
+
+    private var stationTimeline: some View {
+        let points = timelinePoints
+        return VStack(alignment: .leading, spacing: 0) {
+            if let start = timelineStartDate {
+                Text(start.zhDate)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .padding(.leading, 28) // 与轴右侧内容对齐
+                    .padding(.bottom, 4)
+            }
+            ForEach(Array(points.enumerated()), id: \.offset) { index, point in
+                // 轴分段着色：两端都是蓝点（非端点）的连接线用蓝色
+                let topBlue = index > 0 && !points[index - 1].isTerminus && !point.isTerminus
+                let bottomBlue = index < points.count - 1 && !points[index + 1].isTerminus && !point.isTerminus
+                timelineNodeRow(
+                    point: point,
+                    dayOffset: timelineDayOffset(for: point),
+                    isFirst: index == 0,
+                    isLast: index == points.count - 1,
+                    topLineBlue: topBlue,
+                    bottomLineBlue: bottomBlue
+                )
+            }
+        }
+        .padding(.vertical, 6)
+    }
+
+    private func timelineNodeRow(point: TimelinePoint, dayOffset: Int, isFirst: Bool, isLast: Bool, topLineBlue: Bool, bottomLineBlue: Bool) -> some View {
+        let grayLine = Color.secondary.opacity(0.45)
+        return HStack(spacing: 12) {
+            // 左侧轴：竖线贯通整行，圆点压在线上方（重叠绘制，避免相切处的抗锯齿缝隙）
+            ZStack {
+                VStack(spacing: 0) {
+                    Rectangle()
+                        .fill(isFirst ? Color.clear : (topLineBlue ? Color.accentColor : grayLine))
+                        .frame(width: 4)
+                    Rectangle()
+                        .fill(isLast ? Color.clear : (bottomLineBlue ? Color.accentColor : grayLine))
+                        .frame(width: 4)
+                }
+                Circle()
+                    .fill(point.isTerminus ? Color.gray : Color.accentColor)
+                    .frame(width: 13, height: 13)
+            }
+            .frame(width: 16)
+
+            HStack(alignment: .firstTextBaseline, spacing: 1) {
+                Text(point.time?.zhTime ?? "--:--")
+                    .font(.callout.monospacedDigit())
+                    .foregroundStyle(point.time == nil ? .tertiary : .primary)
+                if dayOffset > 0 {
+                    Text("+\(dayOffset)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .baselineOffset(6)
+                }
+            }
+            .frame(width: 72, alignment: .leading)
+
+            Button {
+                showStationLogs(point.station)
+            } label: {
+                HStack(spacing: 6) {
+                    Text(point.station)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(
+                            point.isTerminus ? Color.gray.opacity(0.18) : Color.accentColor.opacity(0.15),
+                            in: RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        )
+                    Text(point.role)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Image(systemName: "chevron.right")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+            .buttonStyle(.plain)
+
+            Spacer()
+        }
+        .frame(height: 46)
+    }
+
     // MARK: - Navigation Helpers
+
+    /// 筛选弹窗请求：用 .sheet(item:) 呈现，内容随呈现一次性定型，
+    /// 避免 isPresented + 外部状态驱动时首次呈现空白的问题
+    private struct MatchingLogsRequest: Identifiable {
+        let id = UUID()
+        let title: String
+        let logs: [TripLog]
+    }
 
     private func showStationLogs(_ name: String) {
         guard !name.isEmpty else { return }
-        matchingTitle = "站点 \(name)"
-        matchingLogs = store.logs.filter { log in
-            log.originStation == name || log.departureStation == name ||
-            log.arrivalStation == name || log.destinationStation == name
-        }
-        showMatchingLogs = true
+        matchingRequest = MatchingLogsRequest(
+            title: "站点 \(name)",
+            logs: store.logs.filter { log in
+                log.originStation == name || log.departureStation == name ||
+                log.arrivalStation == name || log.destinationStation == name
+            }
+        )
     }
 
     private func showBureauLogs(_ bureau: String) {
         guard !bureau.isEmpty else { return }
-        matchingTitle = "路局 \(bureau)"
-        matchingLogs = store.logs.filter { $0.bureau == bureau }
-        showMatchingLogs = true
+        matchingRequest = MatchingLogsRequest(
+            title: "路局 \(bureau)",
+            logs: store.logs.filter { $0.bureau == bureau }
+        )
     }
 
     private func showDepotLogs(_ depot: String) {
         guard !depot.isEmpty else { return }
-        matchingTitle = "客运段 \(depot)"
-        matchingLogs = store.logs.filter { $0.depot == depot }
-        showMatchingLogs = true
+        matchingRequest = MatchingLogsRequest(
+            title: "客运段 \(depot)",
+            logs: store.logs.filter { $0.depot == depot }
+        )
     }
 
     // MARK: - Wallet Button
@@ -334,7 +481,8 @@ private struct MatchingLogsSheet: View {
             emuNumber: "CR400AF-2186",
             carriage: "04", seat: "05C",
             bureau: "北京局", depot: "北京客运段",
-            departureStation: "北京南", arrivalStation: "上海虹桥"
+            departureStation: "北京南", arrivalStation: "上海虹桥",
+            departureTime: Date(), arrivalTime: Date().addingTimeInterval(4.5 * 3600)
         ))
         .environment(DataStore())
     }
