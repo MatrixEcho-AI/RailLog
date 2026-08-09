@@ -464,12 +464,28 @@ private struct StationTimeRow: View {
 private struct StationPickerView: View {
     let title: String
     let onSelect: (RailwayStation) -> Void
+    @Environment(DataStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @State private var searchText = ""
 
-    private var allStations: [RailwayStation] {
+    /// 常用车站：按既有乘车记录中该站出现的次数降序（同次按站名），取前 8 个
+    private var frequentStations: [RailwayStation] {
+        var counts: [String: Int] = [:]
+        for log in store.logs where !log.isDraft {
+            for s in [log.originStation, log.departureStation, log.arrivalStation, log.destinationStation] where !s.isEmpty {
+                counts[s, default: 0] += 1
+            }
+        }
+        let ranked = counts
+            .sorted { $0.value != $1.value ? $0.value > $1.value : $0.key < $1.key }
+            .prefix(8)
+            .map(\.key)
+        return ranked.compactMap { name in railwayStations.first { $0.name == name } }
+    }
+
+    private var filteredStations: [RailwayStation] {
         let sorted = railwayStations.sorted { $0.name < $1.name }
-        if searchText.isEmpty { return sorted }
+        guard !searchText.isEmpty else { return sorted }
         return sorted.filter {
             $0.name.localizedCaseInsensitiveContains(searchText) ||
             $0.code.localizedCaseInsensitiveContains(searchText) ||
@@ -479,19 +495,17 @@ private struct StationPickerView: View {
 
     var body: some View {
         NavigationStack {
-            List(allStations) { station in
-                Button {
-                    onSelect(station)
-                } label: {
-                    HStack {
-                        VStack(alignment: .leading) {
-                            Text(station.name)
-                            Text(station.code)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                        Spacer()
+            List {
+                // 搜索时扁平展示，不参与分组
+                if searchText.isEmpty && !frequentStations.isEmpty {
+                    Section("常用车站") {
+                        ForEach(frequentStations, content: stationRow)
                     }
+                    Section("全部车站") {
+                        ForEach(filteredStations, content: stationRow)
+                    }
+                } else {
+                    ForEach(filteredStations, content: stationRow)
                 }
             }
             .navigationTitle(title)
@@ -501,6 +515,22 @@ private struct StationPickerView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消") { dismiss() }
                 }
+            }
+        }
+    }
+
+    private func stationRow(_ station: RailwayStation) -> some View {
+        Button {
+            onSelect(station)
+        } label: {
+            HStack {
+                VStack(alignment: .leading) {
+                    Text(station.name)
+                    Text(station.code)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
             }
         }
     }
