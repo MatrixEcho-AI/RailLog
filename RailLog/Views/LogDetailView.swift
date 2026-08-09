@@ -35,56 +35,8 @@ struct LogDetailView: View {
                 }
             }
 
-            // 车次信息
-            Section("列车信息") {
-                if !log.trainNumber.isEmpty {
-                    Button {
-                        matchingRequest = MatchingLogsRequest(
-                            title: "车次 \(log.trainNumber)",
-                            logs: store.logs.filter { $0.trainNumber == log.trainNumber }
-                        )
-                    } label: {
-                        HStack {
-                            Text("车次")
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            Text(log.trainNumber)
-                                .fontDesign(.monospaced)
-                            Image(systemName: "chevron.right")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                }
-                if !log.emuNumber.isEmpty {
-                    Button {
-                        matchingRequest = MatchingLogsRequest(
-                            title: "动车组 \(log.emuNumber)",
-                            logs: store.logs.filter { $0.emuNumber == log.emuNumber }
-                        )
-                    } label: {
-                        HStack {
-                            Text("动车组")
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            Text(log.emuNumber)
-                                .fontDesign(.monospaced)
-                            Image(systemName: "chevron.right")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                }
-                if !log.carriage.isEmpty || !log.seat.isEmpty {
-                    DetailRow(label: "座位", value: "\(log.carriage)车 \(log.seat)")
-                }
-                DetailRow(label: "运转时长", value: log.durationFormatted)
-            }
-
-            // 站点信息（时间轴）
-            Section("站点信息") {
+            // 行程信息（时间轴）
+            Section("行程信息") {
                 stationTimeline
             }
 
@@ -237,7 +189,6 @@ struct LogDetailView: View {
                 Text(start.zhDate)
                     .font(.subheadline.weight(.medium))
                     .foregroundStyle(.secondary)
-                    .padding(.leading, 28) // 与轴右侧内容对齐
                     .padding(.bottom, 4)
             }
             ForEach(Array(points.enumerated()), id: \.offset) { index, point in
@@ -252,6 +203,10 @@ struct LogDetailView: View {
                     topLineBlue: topBlue,
                     bottomLineBlue: bottomBlue
                 )
+                // 列车信息插在"出发"节点之后（出发、到达之间）
+                if point.role.contains("出发") {
+                    trainInfoTimelineRow
+                }
             }
         }
         .padding(.vertical, 6)
@@ -313,6 +268,80 @@ struct LogDetailView: View {
             Spacer()
         }
         .frame(height: 46)
+    }
+
+    /// 出发 → 到达 区间内的列车信息块：左侧轴贯通（两端必是蓝点，固定蓝色），无圆点
+    @ViewBuilder
+    private var trainInfoTimelineRow: some View {
+        if hasTrainInfo {
+            HStack(alignment: .top, spacing: 12) {
+                Rectangle()
+                    .fill(Color.accentColor)
+                    .frame(width: 4)
+                    .padding(.horizontal, 6)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    if !log.emuNumber.isEmpty {
+                        Button {
+                            matchingRequest = MatchingLogsRequest(
+                                title: "动车组 \(log.emuNumber)",
+                                logs: store.logs.filter { $0.emuNumber == log.emuNumber }
+                            )
+                        } label: {
+                            trainInfoLine(bold: true, value: log.emuNumber, navigable: true)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    if !log.trainNumber.isEmpty {
+                        Button {
+                            matchingRequest = MatchingLogsRequest(
+                                title: "车次 \(log.trainNumber)",
+                                logs: store.logs.filter { $0.trainNumber == log.trainNumber }
+                            )
+                        } label: {
+                            trainInfoLine(icon: "tram.fill", value: log.trainNumber, navigable: true)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    if !log.carriage.isEmpty || !log.seat.isEmpty {
+                        trainInfoLine(icon: "chair.lounge", weight: .bold, value: "\(log.carriage)车 \(log.seat)", navigable: false)
+                    }
+                    if !log.durationFormatted.isEmpty {
+                        trainInfoLine(icon: "clock", weight: .bold, value: log.durationFormatted, navigable: false)
+                    }
+                }
+                .padding(.leading, 48) // 时间列右缘的 2/3 处
+                .padding(.vertical, 4)
+
+                Spacer()
+            }
+        }
+    }
+
+    private var hasTrainInfo: Bool {
+        !log.trainNumber.isEmpty || !log.emuNumber.isEmpty
+            || !log.carriage.isEmpty || !log.seat.isEmpty
+            || !log.durationFormatted.isEmpty
+    }
+
+    private func trainInfoLine(icon: String? = nil, weight: Font.Weight = .regular, bold: Bool = false, value: String, navigable: Bool) -> some View {
+        HStack(spacing: 8) {
+            if let icon {
+                Image(systemName: icon)
+                    .font(.callout.weight(weight))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 18)
+            }
+            Text(value)
+                .font(.callout)
+                .fontWeight(bold ? .bold : .regular)
+                .fontDesign(navigable ? .monospaced : .default)
+            if navigable {
+                Image(systemName: "chevron.right")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+        }
     }
 
     // MARK: - Navigation Helpers
