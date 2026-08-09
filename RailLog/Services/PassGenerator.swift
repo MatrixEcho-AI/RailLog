@@ -17,7 +17,9 @@ final class PassGenerator {
             throw NotAvailable(reason: "Wallet 卡片签名证书（pass.p12）尚未配置。\n请按项目 Certs/README.md 的步骤申请 Pass Type ID 证书并加入 App。")
         }
 
-        let serial = "\(log.id.uuidString)-\(Int(log.modifiedAt.timeIntervalSince1970))"
+        // serialNumber 必须稳定（只用日志 id）：passTypeID + serial 相同 = 同一张卡，
+        // 重复添加/更新会被 Wallet 替换而不是新增，从机制上杜绝重复卡片。
+        let serial = log.id.uuidString
 
         // Collect all files (name → data)
         var files: [(String, Data)] = []

@@ -166,12 +166,22 @@ final class DataStore {
     func updateLog(_ log: TripLog) {
         var updated = log
         updated.modifiedAt = Date()
-        updated.walletPassAddedAt = nil
         if let idx = logs.firstIndex(where: { $0.id == log.id }) {
             logs[idx] = updated
             saveLogs()
             Task { await cloudSync.pushOne(updated) }
         }
+    }
+
+    /// 记录"已加入钱包"的时间。与 updateLog 不同：不动 modifiedAt，
+    /// 否则会清空钱包状态并把按钮弹回"添加到钱包"。
+    func markWalletPassAdded(_ log: TripLog) {
+        guard let idx = logs.firstIndex(where: { $0.id == log.id }) else { return }
+        var updated = log
+        updated.walletPassAddedAt = Date()
+        logs[idx] = updated
+        saveLogs()
+        Task { await cloudSync.pushOne(updated) }
     }
 
     func deleteLog(_ log: TripLog) {

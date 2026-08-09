@@ -246,7 +246,7 @@ struct LogDetailView: View {
 
     private func onPassAdded() {
         log.walletPassAddedAt = Date()
-        store.updateLog(log)
+        store.markWalletPassAdded(log)
     }
 }
 
