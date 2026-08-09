@@ -131,6 +131,10 @@ final class PassGenerator {
 
         pass["eventTicket"] = eventTicket
 
+        // 每张卡独立分组：不设 groupingIdentifier 时，
+        // Wallet 会把同一 passTypeID 的卡片自动堆叠成一组
+        pass["groupingIdentifier"] = log.id.uuidString
+
         // relevantDate 仅对未来行程设置：当天锁屏提醒、过后自动归档。
         // 历史行程不设——否则 Wallet 会把卡片当"过期凭证"从主界面隐藏。
         if let dep = log.departureTime, dep > Date() {
