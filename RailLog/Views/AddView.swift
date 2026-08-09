@@ -49,23 +49,6 @@ struct AddView: View {
                 }
                 .padding(.horizontal, 32)
 
-                // 大按钮：扫描铁路畅行码
-                Button {
-                    showScanner = true
-                } label: {
-                    VStack(spacing: 16) {
-                        Image(systemName: "qrcode.viewfinder")
-                            .font(.system(size: 60))
-                        Text("扫描铁路畅行码")
-                            .font(.title2.bold())
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 200)
-                    .background(.blue, in: .rect(cornerRadius: 20))
-                    .foregroundStyle(.white)
-                }
-                .padding(.horizontal, 32)
-
                 // 大按钮：扫描车身编号
                 Button {
                     showEMUScanner = true
@@ -83,12 +66,29 @@ struct AddView: View {
                 }
                 .padding(.horizontal, 32)
 
-                // 手动输入 + 草稿
+                // 大按钮：手动输入
+                Button {
+                    showManualEntry = true
+                } label: {
+                    VStack(spacing: 16) {
+                        Image(systemName: "keyboard")
+                            .font(.system(size: 60))
+                        Text("手动输入")
+                            .font(.title2.bold())
+                    }
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 200)
+                    .background(.blue, in: .rect(cornerRadius: 20))
+                    .foregroundStyle(.white)
+                }
+                .padding(.horizontal, 32)
+
+                // 扫描铁路畅行码 + 草稿
                 HStack(spacing: 12) {
                     Button {
-                        showManualEntry = true
+                        showScanner = true
                     } label: {
-                        Label("手动输入", systemImage: "keyboard")
+                        Label("扫描铁路畅行码", systemImage: "qrcode.viewfinder")
                             .font(.subheadline)
                             .frame(maxWidth: .infinity)
                     }
