@@ -219,17 +219,18 @@ final class PassGenerator {
         let margin: CGFloat = 14
         let right = W - margin
 
-        // 发到站大字：两侧等宽区域，中间留给车次；两站统一字号（取长站的适配值）
-        let dep = log.departureStation.isEmpty ? "" : stationWithSuffix(log.departureStation)
-        let arr = log.arrivalStation.isEmpty ? "" : stationWithSuffix(log.arrivalStation)
+        // 发到站大字：两侧等宽区域，中间留给车次；两站统一字号（取长站的适配值）。
+        // 站名末尾的"站"字单独缩小、顶对齐（仿报销凭证的上标小字样式）
+        let dep = log.departureStation
+        let arr = log.arrivalStation
         let stationMaxW: CGFloat = 122
         var stationSize: CGFloat = 26
         for s in [dep, arr] where !s.isEmpty {
-            stationSize = min(stationSize, shrinkingBoldFont(for: s, maxWidth: stationMaxW, from: 26).pointSize)
+            stationSize = min(stationSize, shrinkingStationSize(for: s, maxWidth: stationMaxW, from: 26))
         }
         let stationFont = UIFont.boldSystemFont(ofSize: stationSize)
-        if !dep.isEmpty { drawText(dep, x: margin, y: 33, font: stationFont, color: ticketInk) }
-        if !arr.isEmpty { drawTextRight(arr, rightX: right, y: 33, font: stationFont, color: ticketInk) }
+        if !dep.isEmpty { drawTicketStation(dep, font: stationFont, leftX: margin, y: 33) }
+        if !arr.isEmpty { drawTicketStation(arr, font: stationFont, rightX: right, y: 33) }
 
         // 车次居中 + 下方直线箭头（指向运行方向）
         let train = log.trainNumber.isEmpty ? log.emuNumber : log.trainNumber
@@ -248,18 +249,35 @@ final class PassGenerator {
         }
     }
 
-    private func stationWithSuffix(_ name: String) -> String {
-        name.hasSuffix("站") ? name : name + "站"
+    /// 绘制站名：末尾"站"字单独缩小、顶对齐（上标样式）；leftX / rightX 二选一
+    private func drawTicketStation(_ rawName: String, font: UIFont, leftX: CGFloat? = nil, rightX: CGFloat? = nil, y: CGFloat) {
+        let name = rawName.hasSuffix("站") ? String(rawName.dropLast()) : rawName
+        guard !name.isEmpty else { return }
+        let suffixFont = UIFont.boldSystemFont(ofSize: font.pointSize * 0.55)
+        let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: ticketInk]
+        let suffixAttrs: [NSAttributedString.Key: Any] = [.font: suffixFont, .foregroundColor: ticketInk]
+        let nameWidth = name.size(withAttributes: attrs).width
+        let suffixWidth = "站".size(withAttributes: suffixAttrs).width
+        let gap: CGFloat = 2
+        let startX = leftX ?? ((rightX ?? 0) - nameWidth - gap - suffixWidth)
+        name.draw(at: CGPoint(x: startX, y: y), withAttributes: attrs)
+        // 小"站"相对大字纵向居中
+        let suffixY = y + (font.lineHeight - suffixFont.lineHeight) / 2
+        "站".draw(at: CGPoint(x: startX + nameWidth + gap, y: suffixY), withAttributes: suffixAttrs)
     }
 
-    private func shrinkingBoldFont(for text: String, maxWidth: CGFloat, from size: CGFloat) -> UIFont {
+    private func shrinkingStationSize(for rawName: String, maxWidth: CGFloat, from size: CGFloat) -> CGFloat {
         var s = size
-        var f = UIFont.boldSystemFont(ofSize: s)
-        while s > 12, text.size(withAttributes: [.font: f]).width > maxWidth {
-            s -= 1
-            f = UIFont.boldSystemFont(ofSize: s)
-        }
-        return f
+        while s > 12 && ticketStationWidth(rawName, size: s) > maxWidth { s -= 1 }
+        return s
+    }
+
+    private func ticketStationWidth(_ rawName: String, size: CGFloat) -> CGFloat {
+        let name = rawName.hasSuffix("站") ? String(rawName.dropLast()) : rawName
+        let big = UIFont.boldSystemFont(ofSize: size)
+        let small = UIFont.boldSystemFont(ofSize: size * 0.55)
+        return name.size(withAttributes: [.font: big]).width
+            + 2 + "站".size(withAttributes: [.font: small]).width
     }
 
     private func drawText(_ s: String, x: CGFloat, y: CGFloat, font: UIFont, color: UIColor) {
