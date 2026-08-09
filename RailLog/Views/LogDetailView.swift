@@ -8,8 +8,6 @@ struct LogDetailView: View {
     @State private var showDeleteConfirm = false
     @State private var showTrainLogs = false
     @State private var showEMULogs = false
-    @State private var showAddPass = false
-    @State private var passData: Data?
     @State private var passError: String?
     @State private var matchingTitle = ""
     @State private var matchingLogs: [TripLog] = []
@@ -123,7 +121,7 @@ struct LogDetailView: View {
 
             // 操作
             Section {
-                // walletButton // 暂时隐藏
+                walletButton
                 Button("编辑此日志") { showEdit = true }
                 Button("删除此日志", role: .destructive) {
                     showDeleteConfirm = true
@@ -170,11 +168,6 @@ struct LogDetailView: View {
         }
         .sheet(isPresented: $showMatchingLogs) {
             MatchingLogsSheet(title: matchingTitle, logs: matchingLogs)
-        }
-        .sheet(isPresented: $showAddPass) {
-            if let data = passData {
-                PassAddViewController(passData: data, onAdded: onPassAdded)
-            }
         }
         .alert("无法添加到钱包", isPresented: .init(
             get: { passError != nil },
@@ -238,11 +231,15 @@ struct LogDetailView: View {
     }
 
     private func generateAndPresentPass() {
-        let generator = PassGenerator()
         do {
-            passData = try generator.generate(for: log)
-            showAddPass = true
+            let data = try PassGenerator().generate(for: log)
+            // 先本地校验，避免弹出空白的 Wallet 页面
+            let pass = try PKPass(data: data)
+            WalletPassPresenter.present(pass) { added in
+                if added { onPassAdded() }
+            }
         } catch {
+            print("[Wallet] generate/validate failed: \(error)")
             passError = error.localizedDescription
         }
     }
@@ -325,49 +322,6 @@ private struct MatchingLogsSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("关闭") { dismiss() }
                 }
-            }
-        }
-    }
-}
-
-// MARK: - PKAddPassesViewController Wrapper
-
-struct PassAddViewController: UIViewControllerRepresentable {
-    let passData: Data
-    let onAdded: () -> Void
-    @Environment(\.dismiss) private var dismiss
-
-    func makeUIViewController(context: Context) -> PKAddPassesViewController {
-        guard let pass = try? PKPass(data: passData) else {
-            return PKAddPassesViewController()
-        }
-        context.coordinator.pass = pass
-        let vc = PKAddPassesViewController(pass: pass)
-        vc?.delegate = context.coordinator
-        return vc ?? PKAddPassesViewController()
-    }
-
-    func updateUIViewController(_ uiViewController: PKAddPassesViewController, context: Context) {}
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(dismiss: dismiss, onAdded: onAdded)
-    }
-
-    final class Coordinator: NSObject, PKAddPassesViewControllerDelegate {
-        let dismiss: DismissAction
-        let onAdded: () -> Void
-        var pass: PKPass?
-
-        init(dismiss: DismissAction, onAdded: @escaping () -> Void) {
-            self.dismiss = dismiss
-            self.onAdded = onAdded
-        }
-
-        func addPassesViewControllerDidFinish(_ controller: PKAddPassesViewController) {
-            let added = pass.map { PKPassLibrary().containsPass($0) } ?? false
-            controller.dismiss(animated: true) { [dismiss, onAdded] in
-                dismiss()
-                if added { onAdded() }
             }
         }
     }

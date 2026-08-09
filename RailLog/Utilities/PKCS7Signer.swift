@@ -6,7 +6,9 @@ enum PKCS7Signer {
 
     // MARK: - Public
 
-    static func sign(_ data: Data, identity: SecIdentity) throws -> Data {
+    /// - Parameter additionalCertificates: Extra DER-encoded certificates (e.g. Apple WWDR
+    ///   intermediates) embedded in the PKCS#7 certificate set so Wallet can build the trust chain.
+    static func sign(_ data: Data, identity: SecIdentity, additionalCertificates: [Data] = []) throws -> Data {
         var certRef: SecCertificate?
         guard SecIdentityCopyCertificate(identity, &certRef) == errSecSuccess, let cert = certRef else {
             throw Error.badIdentity
@@ -18,7 +20,11 @@ enum PKCS7Signer {
 
         let certData = SecCertificateCopyData(cert) as Data
 
-        let digest = Data(Insecure.SHA1.hash(data: data))
+        guard let (issuer, serial) = extractIssuerAndSerial(from: certData) else {
+            throw Error.badIdentity
+        }
+
+        let digest = Data(SHA256.hash(data: data))
 
         // Build signed attributes content (Attribute SEQUENCEs without outer SET).
         // The outer SET tag is omitted because [0] IMPLICIT replaces it in SignerInfo.
@@ -31,12 +37,15 @@ enum PKCS7Signer {
 
         // Sign the DER-encoded SET of signed attributes
         var signError: Unmanaged<CFError>?
-        guard let signature = SecKeyCreateSignature(key, .rsaSignatureMessagePKCS1v15SHA1, signedAttrsForSigning as CFData, &signError) as Data? else {
+        guard let signature = SecKeyCreateSignature(key, .rsaSignatureMessagePKCS1v15SHA256, signedAttrsForSigning as CFData, &signError) as Data? else {
             throw signError?.takeRetainedValue() ?? Error.signFailed
         }
 
         return encodeSignedData(
             certificate: certData,
+            additionalCertificates: additionalCertificates,
+            issuer: issuer,
+            serial: serial,
             signedAttributes: signedAttrsContent,
             signature: signature
         )
@@ -47,10 +56,13 @@ enum PKCS7Signer {
     // OIDs
     private static let oidContentType    = Data([0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x09, 0x03]) // 1.2.840.113549.1.9.3
     private static let oidMessageDigest  = Data([0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x09, 0x04]) // 1.2.840.113549.1.9.4
+    private static let oidSigningTime    = Data([0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x09, 0x05]) // 1.2.840.113549.1.9.5
     private static let oidData           = Data([0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x07, 0x01]) // 1.2.840.113549.1.7.1
 
     /// Build signed attributes content (without outer SET wrapper — IMPLICIT tag replaces it).
-    private static func buildSignedAttributes(contentDigest: Data) -> Data {
+    /// Attributes are emitted in canonical DER SET OF order (ascending full encoding):
+    /// contentType (30 18…), signingTime (30 1c…), messageDigest (30 2f…).
+    private static func buildSignedAttributes(contentDigest: Data, signingTime: Date = Date()) -> Data {
         var der = DER()
 
         // Attribute: contentType
@@ -58,6 +70,18 @@ enum PKCS7Signer {
             attr.append(tag: 0x06, data: oidContentType)
             attr.append(tag: 0x31, constructed: true) { vals in
                 vals.append(tag: 0x06, data: oidData)
+            }
+        }
+        // Attribute: signingTime — required by Apple Wallet ("Signature must contain a signing date")
+        let df = DateFormatter()
+        df.dateFormat = "yyMMddHHmmss'Z'"
+        df.timeZone = TimeZone(identifier: "GMT")
+        df.locale = Locale(identifier: "en_US_POSIX")
+        let utcTime = Data(df.string(from: signingTime).utf8)
+        der.append(tag: 0x30, constructed: true) { attr in
+            attr.append(tag: 0x06, data: oidSigningTime)
+            attr.append(tag: 0x31, constructed: true) { vals in
+                vals.append(tag: 0x17, data: utcTime) // UTCTime "YYMMDDHHMMSSZ"
             }
         }
         // Attribute: messageDigest
@@ -105,10 +129,10 @@ enum PKCS7Signer {
     }
 
     private static let oidSignedData     = Data([0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x07, 0x02])
-    private static let oidSHA1           = Data([0x2b, 0x0e, 0x03, 0x02, 0x1a])
-    private static let oidRSAWithSHA1    = Data([0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x05])
+    private static let oidSHA256         = Data([0x60, 0x86, 0x48, 0x01, 0x65, 0x03, 0x04, 0x02, 0x01]) // 2.16.840.1.101.3.4.2.1
+    private static let oidRSAWithSHA256  = Data([0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x0b]) // 1.2.840.113549.1.1.11
 
-    private static func encodeSignedData(certificate: Data, signedAttributes: Data, signature: Data) -> Data {
+    private static func encodeSignedData(certificate: Data, additionalCertificates: [Data], issuer: [UInt8], serial: [UInt8], signedAttributes: Data, signature: Data) -> Data {
         var der = DER()
 
         // ContentInfo: SEQUENCE { OID signedData, [0] EXPLICIT SignedData }
@@ -123,7 +147,7 @@ enum PKCS7Signer {
                     // digestAlgorithms: SET of AlgorithmIdentifier
                     body.append(tag: 0x31, constructed: true) { da in
                         da.append(tag: 0x30, constructed: true) { alg in
-                            alg.append(tag: 0x06, data: oidSHA1)
+                            alg.append(tag: 0x06, data: oidSHA256)
                             alg.bytes.append(0x05); alg.bytes.append(0x00) // NULL
                         }
                     }
@@ -133,9 +157,12 @@ enum PKCS7Signer {
                         eci.append(tag: 0x06, data: oidData)
                     }
 
-                    // certificates: [0] IMPLICIT (raw cert DER)
+                    // certificates: [0] IMPLICIT (leaf + WWDR intermediates, raw cert DER)
                     body.append(tag: 0xa0, constructed: true) { certs in
                         certs.bytes.append(certificate)
+                        for extra in additionalCertificates {
+                            certs.bytes.append(extra)
+                        }
                     }
 
                     // signerInfos: SET of SignerInfo
@@ -145,16 +172,14 @@ enum PKCS7Signer {
                             signer.bytes.append(0x02); signer.bytes.append(0x01); signer.bytes.append(0x01)
 
                             // issuerAndSerialNumber from cert
-                            if let (issuer, serial) = extractIssuerAndSerial(from: certificate) {
-                                signer.append(tag: 0x30, constructed: true) { isn in
-                                    isn.bytes.append(Data(issuer))
-                                    isn.bytes.append(Data(serial))
-                                }
+                            signer.append(tag: 0x30, constructed: true) { isn in
+                                isn.bytes.append(Data(issuer))
+                                isn.bytes.append(Data(serial))
                             }
 
                             // digestAlgorithm
                             signer.append(tag: 0x30, constructed: true) { alg in
-                                alg.append(tag: 0x06, data: oidSHA1)
+                                alg.append(tag: 0x06, data: oidSHA256)
                                 alg.bytes.append(0x05); alg.bytes.append(0x00)
                             }
 
@@ -165,7 +190,7 @@ enum PKCS7Signer {
 
                             // signatureAlgorithm
                             signer.append(tag: 0x30, constructed: true) { alg in
-                                alg.append(tag: 0x06, data: oidRSAWithSHA1)
+                                alg.append(tag: 0x06, data: oidRSAWithSHA256)
                                 alg.bytes.append(0x05); alg.bytes.append(0x00)
                             }
 
@@ -187,10 +212,10 @@ enum PKCS7Signer {
         let bytes = [UInt8](certData)
         var pos = 0
 
-        // Certificate ::= SEQUENCE
-        guard nextTLV(bytes, &pos, tag: 0x30) else { return nil }
-        // TBSCertificate ::= SEQUENCE
-        guard nextTLV(bytes, &pos, tag: 0x30) else { return nil }
+        // Certificate ::= SEQUENCE (descend)
+        guard enterTLV(bytes, &pos, tag: 0x30) else { return nil }
+        // TBSCertificate ::= SEQUENCE (descend)
+        guard enterTLV(bytes, &pos, tag: 0x30) else { return nil }
 
         // version [0] EXPLICIT (optional)
         if pos < bytes.count && bytes[pos] == 0xa0 {
@@ -211,12 +236,12 @@ enum PKCS7Signer {
 
     // MARK: - TLV Helpers
 
-    private static func nextTLV(_ bytes: [UInt8], _ pos: inout Int, tag: UInt8) -> Bool {
+    /// Consume only tag and length, leaving pos at the content — for descending into constructed types.
+    private static func enterTLV(_ bytes: [UInt8], _ pos: inout Int, tag: UInt8) -> Bool {
         guard pos < bytes.count, bytes[pos] == tag else { return false }
         pos += 1
         let len = readLength(bytes, &pos)
         guard len >= 0, pos + len <= bytes.count else { return false }
-        pos += len
         return true
     }
 

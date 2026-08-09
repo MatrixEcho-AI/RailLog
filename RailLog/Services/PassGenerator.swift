@@ -13,8 +13,8 @@ final class PassGenerator {
 
     /// Returns .pkpass data for the given trip log, or throws if signing is unavailable.
     func generate(for log: TripLog) throws -> Data {
-        guard let identity = loadIdentity() else {
-            throw NotAvailable(reason: "未找到 pass.p12 证书文件。\n请在 Apple Developer 创建 Pass Type ID 证书并放入 app bundle。")
+        guard let signing = loadSigningMaterials() else {
+            throw NotAvailable(reason: "Wallet 卡片签名证书（pass.p12）尚未配置。\n请按项目 Certs/README.md 的步骤申请 Pass Type ID 证书并加入 App。")
         }
 
         let serial = "\(log.id.uuidString)-\(Int(log.modifiedAt.timeIntervalSince1970))"
@@ -29,7 +29,8 @@ final class PassGenerator {
             files.append(img)
         }
 
-        // Build manifest
+        // Build manifest — Wallet validates manifest entries against SHA-1,
+        // so these hashes must stay SHA-1 even though the PKCS#7 signature uses SHA-256.
         var manifest: [String: String] = [:]
         for (name, data) in files {
             manifest[name] = sha1(data)
@@ -38,7 +39,7 @@ final class PassGenerator {
         files.append(("manifest.json", manifestData))
 
         // Sign manifest
-        let signature = try signManifest(manifestData, identity: identity)
+        let signature = try signManifest(manifestData, identity: signing.identity, chain: signing.certificates)
         files.append(("signature", signature))
 
         // Package as .pkpass (zip)
@@ -48,12 +49,14 @@ final class PassGenerator {
         }
         let pkpass = zip.finalize()
 
+        #if DEBUG
         // Debug: save to Documents for openssl inspection
         if let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
             let debugURL = docs.appendingPathComponent("debug.pkpass")
             try? pkpass.write(to: debugURL)
             print("[PassGen] saved debug.pkpass to \(debugURL.path)")
         }
+        #endif
 
         return pkpass
     }
@@ -124,6 +127,11 @@ final class PassGenerator {
 
         pass["eventTicket"] = eventTicket
 
+        // 到出发时间时在锁屏显示卡片
+        if let dep = log.departureTime {
+            pass["relevantDate"] = ISO8601DateFormatter().string(from: dep)
+        }
+
         return try JSONSerialization.data(withJSONObject: pass, options: [.prettyPrinted, .sortedKeys])
     }
 
@@ -170,7 +178,7 @@ final class PassGenerator {
         }
     }
 
-    // MARK: - SHA1
+    // MARK: - SHA-1 (Wallet manifest hashes must be SHA-1)
 
     private func sha1(_ data: Data) -> String {
         let digest = Insecure.SHA1.hash(data: data)
@@ -179,7 +187,13 @@ final class PassGenerator {
 
     // MARK: - Signing
 
-    private func loadIdentity() -> SecIdentity? {
+    private struct SigningMaterials {
+        let identity: SecIdentity
+        /// Additional DER-encoded chain certificates (Apple WWDR intermediates).
+        let certificates: [Data]
+    }
+
+    private func loadSigningMaterials() -> SigningMaterials? {
         guard let url = Bundle.main.url(forResource: "pass", withExtension: "p12"),
               let data = try? Data(contentsOf: url) else { return nil }
 
@@ -187,12 +201,41 @@ final class PassGenerator {
         var items: CFArray?
         guard SecPKCS12Import(data as CFData, opts as CFDictionary, &items) == errSecSuccess,
               let arr = items as? [[String: Any]],
-              let identity = arr.first?[kSecImportItemIdentity as String] else { return nil }
-        return (identity as! SecIdentity)
+              let item = arr.first,
+              let identity = item[kSecImportItemIdentity as String] else { return nil }
+
+        let secIdentity = identity as! SecIdentity
+
+        var leafData: Data?
+        var certRef: SecCertificate?
+        if SecIdentityCopyCertificate(secIdentity, &certRef) == errSecSuccess, let cert = certRef {
+            leafData = SecCertificateCopyData(cert) as Data
+        }
+
+        var chain: [Data] = []
+
+        // 1) Intermediate certs embedded in the .p12 (present when exported with the full chain)
+        if let certs = item[kSecImportItemCertChain as String] as? [SecCertificate] {
+            chain += certs.map { SecCertificateCopyData($0) as Data }.filter { $0 != leafData }
+        }
+
+        // 2) Bundled Apple WWDR intermediates as fallback — Wallet picks what it needs
+        for name in ["AppleWWDRCAG3", "AppleWWDRCAG4", "AppleWWDRCAG5", "AppleWWDRCAG6"] {
+            if let u = Bundle.main.url(forResource: name, withExtension: "cer"),
+               let d = try? Data(contentsOf: u) {
+                chain.append(d)
+            }
+        }
+
+        // De-duplicate
+        var seen = Set<Data>()
+        chain = chain.filter { seen.insert($0).inserted }
+
+        return SigningMaterials(identity: secIdentity, certificates: chain)
     }
 
-    private func signManifest(_ manifestData: Data, identity: SecIdentity) throws -> Data {
-        try PKCS7Signer.sign(manifestData, identity: identity)
+    private func signManifest(_ manifestData: Data, identity: SecIdentity, chain: [Data]) throws -> Data {
+        try PKCS7Signer.sign(manifestData, identity: identity, additionalCertificates: chain)
     }
 }
 
@@ -201,5 +244,5 @@ final class PassGenerator {
 private enum PassConfig {
     static let passTypeID = "pass.cn.matrixecho.RailLog"
     static let teamID = "7T69YP7U49"
-    static let p12Password = ""
+    static let p12Password = "cbf2dc7eb5cfacc586b4fdb6"
 }
