@@ -296,6 +296,19 @@ final class PassGenerator {
         s.draw(at: CGPoint(x: centerX - w / 2, y: y), withAttributes: attrs)
     }
 
+    // MARK: - 教程演示复用
+
+    /// 用真实绘制代码渲染票面横幅（教程页展示用）
+    func stripPreviewImage(for log: TripLog) -> UIImage? {
+        guard let data = stripImage(for: log, scale: 3) else { return nil }
+        return UIImage(data: data)
+    }
+
+    /// 票面二维码内容（教程页展示用）
+    func barcodePreviewMessage(for log: TripLog) -> String {
+        barcodeMessage(for: log)
+    }
+
     // MARK: - SHA-1 (Wallet manifest hashes must be SHA-1)
 
     private func sha1(_ data: Data) -> String {

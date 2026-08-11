@@ -232,6 +232,11 @@ final class DataStore {
         saveLogs()
     }
 
+    /// 仅教程演示用：注入示例日志（内存态，不持久化、不触发同步）
+    func seedForTutorial(_ demoLogs: [TripLog]) {
+        logs = demoLogs
+    }
+
     // MARK: - CSV 导出
 
     func exportCSV() -> URL {

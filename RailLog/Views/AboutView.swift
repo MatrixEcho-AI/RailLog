@@ -2,6 +2,8 @@ import SwiftUI
 
 struct AboutView: View {
     @Environment(DataStore.self) private var store
+    /// 教程演示用：隐藏自带导航大标题
+    var hideNavigationBar = false
     @State private var showGameCenter = false
     private var totalTrips: Int {
         store.logs.filter { !$0.isDraft }.count
@@ -141,6 +143,7 @@ struct AboutView: View {
 
             }
             .navigationTitle("统计")
+            .toolbar(hideNavigationBar ? .hidden : .automatic, for: .navigationBar)
             .sheet(isPresented: $showGameCenter) {
                 GKGameCenterView()
             }

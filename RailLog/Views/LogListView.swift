@@ -2,6 +2,8 @@ import SwiftUI
 
 struct LogListView: View {
     @Environment(DataStore.self) private var store
+    /// 教程演示用：隐藏自带导航大标题
+    var hideNavigationBar = false
     @State private var searchText = ""
     @State private var filterBureau: String = "全部"
     @State private var showFavoritesOnly = false
@@ -108,6 +110,7 @@ struct LogListView: View {
                 }
             }
             .navigationTitle("运转日志")
+            .toolbar(hideNavigationBar ? .hidden : .automatic, for: .navigationBar)
             .searchable(text: $searchText, prompt: "搜索车次、车站...")
             .alert("删除运转日志", isPresented: Binding(
                 get: { deleteTarget != nil },
