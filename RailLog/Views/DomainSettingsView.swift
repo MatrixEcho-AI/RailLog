@@ -83,7 +83,7 @@ struct DomainSettingsView: View {
                         store.triggerSafetyRelearn(for: store.currentDomainID)
                         dismiss()
                     } label: {
-                        Label("重新学习安全教育", systemImage: "hand.raised.fill")
+                        Label("使用教程与安全须知", systemImage: "book.fill")
                             .frame(maxWidth: .infinity)
                     }
                 }
