@@ -176,6 +176,15 @@ private let tutorialDemoLogs: [TripLog] = {
     ]
 }()
 
+/// 把子视图钉成舞台的精确尺寸并顶部对齐（防止尺寸协商把内容顶出舞台）
+private struct StageFrame: ViewModifier {
+    let geo: GeometryProxy
+    func body(content: Content) -> some View {
+        content
+            .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
+    }
+}
+
 // MARK: - 全流程演示
 
 /// 扫描 → 填写 → 列表 → 详情 → 钱包 → 统计，标题图标随阶段切换。
@@ -184,10 +193,17 @@ private struct FullJourneyDemo: View {
     /// 5 详情(滚到钱包+按下) / 6 卡片升起 / 7 卡片入钱包 / 8 完成勾 / 9 统计 / 10 收起重播
     @State private var step = 0
     @State private var demoStore = DataStore()
-    /// 虚拟手指：可见性、高度（舞台高度比例）、按压态
+    /// 虚拟手指：可见性、位置（舞台内绝对 pt，与内容坐标系一致）、按压态
     @State private var fingerVisible = false
-    @State private var fingerY: CGFloat = 0.75
+    @State private var fingerY: CGFloat = 500
     @State private var fingerTapped = false
+
+    // MARK: 点击目标坐标（按模拟器截图实测校准；要调就改这几个数）
+    private let formScroll: CGFloat = 330          // 表单滚动量（与下方 offset 一致）
+    private let formSaveButtonY: CGFloat = 745     // "完成运转"按钮的内容 y
+    private let listFirstRowY: CGFloat = 102       // 列表第一行中心的内容 y
+    private let detailScroll: CGFloat = 200        // 详情滚动量（与下方 offset 一致）
+    private let detailWalletY: CGFloat = 585       // "添加到钱包"按钮的内容 y
 
     private var header: (icon: String, title: String) {
         switch step {
@@ -202,7 +218,7 @@ private struct FullJourneyDemo: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            // 图标 + 大标题（随阶段切换）
+            // 图标 + 大标题（随阶段切换；标题直接替换，不用转场——避免转场叠加层闪帧）
             VStack(spacing: 6) {
                 Image(systemName: header.icon)
                     .font(.system(size: 40))
@@ -213,69 +229,72 @@ private struct FullJourneyDemo: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.top, 12)
-            .id(header.title)
-            .transition(.opacity.combined(with: .offset(y: 6)))
-            .animation(.easeInOut(duration: 0.25), value: header.title)
 
             // 演示舞台：GeometryReader 量出可用空间后强制固定尺寸，超出部分裁剪
             GeometryReader { geo in
-                ZStack {
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(Color(.secondarySystemGroupedBackground))
+                ZStack(alignment: .top) {
+                    Color(.secondarySystemGroupedBackground)
 
-                    if step == 0 {
-                        ScannerMock()
-                            .transition(.opacity)
-                    } else if step <= 2 {
-                        // 真实填写页（草稿形态，按钮为"完成运转"）；step 2 整体上移露出底部按钮
-                        ZStack(alignment: .top) {
-                            Color(.systemGroupedBackground)
-                            TripEditView(draft: tutorialDemoDraft)
-                                .environment(demoStore)
-                                .disabled(true)
-                                .allowsHitTesting(false)
-                                .frame(height: 1250)
-                                .offset(y: step == 2 ? -330 : 0)
-                        }
-                        .transition(.opacity)
-                    } else if step == 3 {
-                        // 真实运转列表
-                        ZStack(alignment: .top) {
-                            Color(.systemGroupedBackground)
-                            LogListView(hideNavigationBar: true)
-                                .environment(demoStore)
-                                .disabled(true)
-                                .allowsHitTesting(false)
-                        }
-                        .transition(.opacity)
-                    } else if step <= 5 {
-                        // 真实运转详情；step 5 整体上移露出"添加到钱包"
-                        ZStack(alignment: .top) {
-                            Color(.systemGroupedBackground)
-                            LogDetailView(log: tutorialDemoLog)
-                                .environment(demoStore)
-                                .disabled(true)
-                                .allowsHitTesting(false)
-                                .frame(height: 1000)
-                                .offset(y: step == 5 ? -200 : 0)
-                        }
-                        .transition(.opacity)
-                    } else if step <= 8 {
-                        walletStage
-                            .transition(.opacity)
-                    } else if step == 9 {
-                        // 真实统计页
-                        ZStack(alignment: .top) {
-                            Color(.systemGroupedBackground)
-                            AboutView(hideNavigationBar: true)
-                                .environment(demoStore)
-                                .disabled(true)
-                                .allowsHitTesting(false)
-                        }
-                        .transition(.opacity)
+                    // 各阶段常驻，每个子视图都显式钉上舞台的精确尺寸（顶部对齐），
+                    // 仅用透明度切换——不做插入/移除转场，避免转场叠加层伪影
+                    ScannerMock()
+                        .modifier(StageFrame(geo: geo))
+                        .opacity(step == 0 ? 1 : 0)
+
+                    // 真实填写页（草稿形态，按钮为"完成运转"）；step 2 整体上移露出底部按钮
+                    ZStack(alignment: .top) {
+                        Color(.systemGroupedBackground)
+                        TripEditView(draft: tutorialDemoDraft)
+                            .environment(demoStore)
+                            .disabled(true)
+                            .allowsHitTesting(false)
+                            .frame(height: 1250)
+                            .offset(y: step == 2 ? -330 : 0)
                     }
+                    .modifier(StageFrame(geo: geo))
+                    .opacity(step >= 1 && step <= 2 ? 1 : 0)
+
+                    // 真实运转列表
+                    ZStack(alignment: .top) {
+                        Color(.systemGroupedBackground)
+                        LogListView(hideNavigationBar: true)
+                            .environment(demoStore)
+                            .ignoresSafeArea(.container, edges: .top)
+                            .disabled(true)
+                            .allowsHitTesting(false)
+                    }
+                    .modifier(StageFrame(geo: geo))
+                    .opacity(step == 3 ? 1 : 0)
+
+                    // 真实运转详情；step 5 整体上移露出"添加到钱包"
+                    ZStack(alignment: .top) {
+                        Color(.systemGroupedBackground)
+                        LogDetailView(log: tutorialDemoLog)
+                            .environment(demoStore)
+                            .disabled(true)
+                            .allowsHitTesting(false)
+                            .frame(height: 1000)
+                            .offset(y: step == 5 ? -200 : 0)
+                    }
+                    .modifier(StageFrame(geo: geo))
+                    .opacity(step >= 4 && step <= 5 ? 1 : 0)
+
+                    // 钱包阶段（常驻，子视图按 step 自行控制显隐与位移）
+                    walletStage
+                        .modifier(StageFrame(geo: geo))
+
+                    // 真实统计页
+                    ZStack(alignment: .top) {
+                        Color(.systemGroupedBackground)
+                        AboutView(hideNavigationBar: true)
+                            .environment(demoStore)
+                            .ignoresSafeArea(.container, edges: .top)
+                            .disabled(true)
+                            .allowsHitTesting(false)
+                    }
+                    .modifier(StageFrame(geo: geo))
+                    .opacity(step == 9 ? 1 : 0)
                 }
-                .frame(width: geo.size.width, height: geo.size.height)
                 .clipShape(RoundedRectangle(cornerRadius: 20))
                 .overlay { finger(in: geo) }
             }
@@ -290,47 +309,50 @@ private struct FullJourneyDemo: View {
     }
 
     /// 钱包阶段：6=卡片升起 7=缩小飞入堆叠（居中） 8=完成勾弹出
+    /// 常驻视图，全程用 offset/opacity/scale 驱动，不做插入/移除转场
     private var walletStage: some View {
         ZStack {
-            // 钱包堆叠（居中偏上，step 7 出现）
-            if step >= 7 {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color(.systemGray3))
-                        .frame(width: 110, height: 68)
-                        .offset(y: -24)
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color(.systemGray4))
-                        .frame(width: 110, height: 68)
-                        .offset(y: -12)
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color(.systemGray5))
-                        .frame(width: 110, height: 68)
-                }
+            // 钱包堆叠（居中偏上，step 7 淡入）
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color(.systemGray3))
+                    .frame(width: 110, height: 68)
+                    .offset(y: -24)
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color(.systemGray4))
+                    .frame(width: 110, height: 68)
+                    .offset(y: -12)
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color(.systemGray5))
+                    .frame(width: 110, height: 68)
+            }
+            .offset(y: -70)
+            .opacity(step >= 7 ? 1 : 0)
+
+            // 卡片：候场在舞台下方外 → 升起 → 缩小飞进堆叠 → 溶入消失
+            PassCardMock()
+                .padding(.horizontal, 36)
+                .scaleEffect(step >= 7 ? 0.24 : 1)
+                .offset(y: cardOffset)
+                .opacity(step >= 6 && step <= 7 ? 1 : 0)
+
+            // 完成勾（step 8 在堆叠处弹出）
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 30))
+                .foregroundStyle(.green)
+                .background(.white, in: Circle())
                 .offset(y: -70)
-                .transition(.opacity)
-            }
-
-            // 卡片：从底部升到中下方 → 缩小飞进堆叠 → 溶入消失
-            if step <= 8 {
-                PassCardMock()
-                    .padding(.horizontal, 36)
-                    .scaleEffect(step >= 7 ? 0.24 : 1)
-                    .offset(y: step >= 7 ? -70 : 80)
-                    .opacity(step >= 8 ? 0 : 1)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
-
-            // 完成勾（step 8 弹出在堆叠处）
-            if step >= 8 {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 30))
-                    .foregroundStyle(.green)
-                    .background(.white, in: Circle())
-                    .offset(y: -70)
-                    .transition(.scale(scale: 0.3).combined(with: .opacity))
-            }
+                .scaleEffect(step >= 8 ? 1 : 0.2)
+                .opacity(step >= 8 ? 1 : 0)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// 卡片纵向位置：候场(舞台外) → 中下方 → 堆叠处
+    private var cardOffset: CGFloat {
+        if step >= 7 { return -70 }
+        if step >= 6 { return 80 }
+        return 420
     }
 
     /// 虚拟手指层：按压时手指收缩、波纹爆开
@@ -351,7 +373,7 @@ private struct FullJourneyDemo: View {
                 .scaleEffect(fingerTapped ? 0.75 : 1)
         }
         .opacity(fingerVisible ? 1 : 0)
-        .position(x: geo.size.width / 2, y: geo.size.height * fingerY)
+        .position(x: geo.size.width / 2, y: fingerY)
         .allowsHitTesting(false)
     }
 
@@ -381,14 +403,14 @@ private struct FullJourneyDemo: View {
             // 填写：手指按下 → 拖动滚屏 → 落到"完成运转"上按压
             withAnimation(.easeInOut(duration: 0.35)) { step = 1 }
             try? await Task.sleep(for: .seconds(0.5))
-            showFinger(at: 0.72)
+            showFinger(at: 520)
             try? await Task.sleep(for: .seconds(0.6))
             withAnimation(.easeInOut(duration: 0.6)) {
                 step = 2
-                fingerY = 0.52 // 手指跟随内容一起上移
+                fingerY = 380 // 手指跟随内容一起上移
             }
             try? await Task.sleep(for: .seconds(0.7))
-            withAnimation(.easeInOut(duration: 0.2)) { fingerY = 0.66 }
+            withAnimation(.easeInOut(duration: 0.2)) { fingerY = formSaveButtonY - formScroll }
             try? await Task.sleep(for: .seconds(0.25))
             await tap()
             hideFinger()
@@ -396,7 +418,7 @@ private struct FullJourneyDemo: View {
             // 运转列表：点第一行
             withAnimation(.easeInOut(duration: 0.35)) { step = 3 }
             try? await Task.sleep(for: .seconds(0.5))
-            showFinger(at: 0.28)
+            showFinger(at: listFirstRowY)
             try? await Task.sleep(for: .seconds(0.6))
             await tap()
             hideFinger()
@@ -404,14 +426,14 @@ private struct FullJourneyDemo: View {
             // 运转详情：拖上滚屏 → 点"添加到钱包"
             withAnimation(.easeInOut(duration: 0.35)) { step = 4 }
             try? await Task.sleep(for: .seconds(0.5))
-            showFinger(at: 0.72)
+            showFinger(at: 520)
             try? await Task.sleep(for: .seconds(0.6))
             withAnimation(.easeInOut(duration: 0.55)) {
                 step = 5
-                fingerY = 0.52
+                fingerY = 380
             }
             try? await Task.sleep(for: .seconds(0.65))
-            withAnimation(.easeInOut(duration: 0.2)) { fingerY = 0.65 }
+            withAnimation(.easeInOut(duration: 0.2)) { fingerY = detailWalletY - detailScroll }
             try? await Task.sleep(for: .seconds(0.25))
             await tap()
             hideFinger()
