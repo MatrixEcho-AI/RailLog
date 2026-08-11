@@ -197,13 +197,16 @@ private struct FullJourneyDemo: View {
     @State private var fingerVisible = false
     @State private var fingerY: CGFloat = 500
     @State private var fingerTapped = false
+    /// 表单/详情的当前滚动量（分段拖拽驱动，手指移动距离与其严格一致）
+    @State private var formOffset: CGFloat = 0
+    @State private var detailOffset: CGFloat = 0
 
     // MARK: 点击目标坐标（按模拟器截图实测校准；要调就改这几个数）
-    private let formScroll: CGFloat = 330          // 表单滚动量（与下方 offset 一致）
-    private let formSaveButtonY: CGFloat = 745     // "完成运转"按钮的内容 y
+    private let formScroll: CGFloat = 710          // 表单滚动量（与下方 offset 一致）
+    private let formSaveButtonY: CGFloat = 1066    // "完成运转"按钮的内容 y
     private let listFirstRowY: CGFloat = 102       // 列表第一行中心的内容 y
-    private let detailScroll: CGFloat = 200        // 详情滚动量（与下方 offset 一致）
-    private let detailWalletY: CGFloat = 585       // "添加到钱包"按钮的内容 y
+    private let detailScroll: CGFloat = 535        // 详情滚动量（与下方 offset 一致）
+    private let detailWalletY: CGFloat = 911       // "添加到钱包"按钮的内容 y
 
     private var header: (icon: String, title: String) {
         switch step {
@@ -237,7 +240,7 @@ private struct FullJourneyDemo: View {
 
                     // 各阶段常驻，每个子视图都显式钉上舞台的精确尺寸（顶部对齐），
                     // 仅用透明度切换——不做插入/移除转场，避免转场叠加层伪影
-                    ScannerMock()
+                    ScannerMock(active: step == 0)
                         .modifier(StageFrame(geo: geo))
                         .opacity(step == 0 ? 1 : 0)
 
@@ -248,8 +251,8 @@ private struct FullJourneyDemo: View {
                             .environment(demoStore)
                             .disabled(true)
                             .allowsHitTesting(false)
-                            .frame(height: 1250)
-                            .offset(y: step == 2 ? -330 : 0)
+                            .frame(height: 1400)
+                            .offset(y: -formOffset)
                     }
                     .modifier(StageFrame(geo: geo))
                     .opacity(step >= 1 && step <= 2 ? 1 : 0)
@@ -273,8 +276,8 @@ private struct FullJourneyDemo: View {
                             .environment(demoStore)
                             .disabled(true)
                             .allowsHitTesting(false)
-                            .frame(height: 1000)
-                            .offset(y: step == 5 ? -200 : 0)
+                            .frame(height: 1200)
+                            .offset(y: -detailOffset)
                     }
                     .modifier(StageFrame(geo: geo))
                     .opacity(step >= 4 && step <= 5 ? 1 : 0)
@@ -312,7 +315,7 @@ private struct FullJourneyDemo: View {
     /// 常驻视图，全程用 offset/opacity/scale 驱动，不做插入/移除转场
     private var walletStage: some View {
         ZStack {
-            // 钱包堆叠（居中偏上，step 7 淡入）
+            // 钱包堆叠（居中偏上，仅 step 7-8 可见——否则统计阶段会残留闪回）
             ZStack {
                 RoundedRectangle(cornerRadius: 10)
                     .fill(Color(.systemGray3))
@@ -327,7 +330,7 @@ private struct FullJourneyDemo: View {
                     .frame(width: 110, height: 68)
             }
             .offset(y: -70)
-            .opacity(step >= 7 ? 1 : 0)
+            .opacity(step >= 7 && step <= 8 ? 1 : 0)
 
             // 卡片：候场在舞台下方外 → 升起 → 缩小飞进堆叠 → 溶入消失
             PassCardMock()
@@ -336,14 +339,14 @@ private struct FullJourneyDemo: View {
                 .offset(y: cardOffset)
                 .opacity(step >= 6 && step <= 7 ? 1 : 0)
 
-            // 完成勾（step 8 在堆叠处弹出）
+            // 完成勾（仅 step 8 在堆叠处弹出）
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 30))
                 .foregroundStyle(.green)
                 .background(.white, in: Circle())
                 .offset(y: -70)
-                .scaleEffect(step >= 8 ? 1 : 0.2)
-                .opacity(step >= 8 ? 1 : 0)
+                .scaleEffect(step == 8 ? 1 : 0.2)
+                .opacity(step == 8 ? 1 : 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -394,22 +397,39 @@ private struct FullJourneyDemo: View {
         try? await Task.sleep(for: .seconds(0.15))
     }
 
+    /// 抬手并在下方重新按下（分段拖拽之间）
+    private func liftAndRepress(at y: CGFloat) async {
+        withAnimation(.easeOut(duration: 0.12)) { fingerVisible = false }
+        try? await Task.sleep(for: .seconds(0.14))
+        fingerY = y
+        withAnimation(.easeOut(duration: 0.12)) { fingerVisible = true }
+        try? await Task.sleep(for: .seconds(0.12))
+    }
+
     private func runLoop() async {
         while !Task.isCancelled {
             // 扫描录入
+            formOffset = 0
+            detailOffset = 0
             withAnimation(.easeInOut(duration: 0.25)) { step = 0 }
             try? await Task.sleep(for: .seconds(2.2))
 
-            // 填写：手指按下 → 拖动滚屏 → 落到"完成运转"上按压
+            // 填写：分段拖两次（每段手指位移=内容滚动量）→ 落到"完成运转"上按压
             withAnimation(.easeInOut(duration: 0.35)) { step = 1 }
             try? await Task.sleep(for: .seconds(0.5))
-            showFinger(at: 520)
+            showFinger(at: 560)
             try? await Task.sleep(for: .seconds(0.6))
-            withAnimation(.easeInOut(duration: 0.6)) {
-                step = 2
-                fingerY = 380 // 手指跟随内容一起上移
+            withAnimation(.easeInOut(duration: 0.5)) {
+                formOffset = 380
+                fingerY = 180
             }
-            try? await Task.sleep(for: .seconds(0.7))
+            try? await Task.sleep(for: .seconds(0.55))
+            await liftAndRepress(at: 560)
+            withAnimation(.easeInOut(duration: 0.5)) {
+                formOffset = 710
+                fingerY = 230
+            }
+            try? await Task.sleep(for: .seconds(0.55))
             withAnimation(.easeInOut(duration: 0.2)) { fingerY = formSaveButtonY - formScroll }
             try? await Task.sleep(for: .seconds(0.25))
             await tap()
@@ -423,16 +443,22 @@ private struct FullJourneyDemo: View {
             await tap()
             hideFinger()
 
-            // 运转详情：拖上滚屏 → 点"添加到钱包"
+            // 运转详情：分段拖两次 → 落到"添加到钱包"上按压
             withAnimation(.easeInOut(duration: 0.35)) { step = 4 }
             try? await Task.sleep(for: .seconds(0.5))
-            showFinger(at: 520)
+            showFinger(at: 560)
             try? await Task.sleep(for: .seconds(0.6))
-            withAnimation(.easeInOut(duration: 0.55)) {
-                step = 5
-                fingerY = 380
+            withAnimation(.easeInOut(duration: 0.5)) {
+                detailOffset = 280
+                fingerY = 280
             }
-            try? await Task.sleep(for: .seconds(0.65))
+            try? await Task.sleep(for: .seconds(0.55))
+            await liftAndRepress(at: 560)
+            withAnimation(.easeInOut(duration: 0.5)) {
+                detailOffset = 535
+                fingerY = 305
+            }
+            try? await Task.sleep(for: .seconds(0.55))
             withAnimation(.easeInOut(duration: 0.2)) { fingerY = detailWalletY - detailScroll }
             try? await Task.sleep(for: .seconds(0.25))
             await tap()
@@ -456,7 +482,9 @@ private struct FullJourneyDemo: View {
 }
 
 /// 扫描画面复刻（相机页依赖摄像头无法直接复用；白底、扫描线往复）
+/// 常驻视图：repeatForever 动画在不可见后会被系统停掉，用 active 显式重启
 private struct ScannerMock: View {
+    var active: Bool = true
     @State private var sweep = false
 
     var body: some View {
@@ -480,11 +508,21 @@ private struct ScannerMock: View {
                 .offset(y: sweep ? 40 : -40)
         }
         .padding(20)
-        .onAppear {
-            withAnimation(.linear(duration: 0.8).repeatForever(autoreverses: true)) {
-                sweep = true
-            }
+        .onAppear { if active { startSweep() } }
+        .onChange(of: active) { _, newValue in
+            if newValue { startSweep() } else { stopSweep() }
         }
+    }
+
+    private func startSweep() {
+        sweep = false
+        withAnimation(.linear(duration: 0.8).repeatForever(autoreverses: true)) {
+            sweep = true
+        }
+    }
+
+    private func stopSweep() {
+        withAnimation(.linear(duration: 0.2)) { sweep = false }
     }
 }
 
