@@ -174,6 +174,27 @@ private let tutorialDemoLogs: [TripLog] = {
         make("C7086", "CRH6A-0618", "广州东", "深圳", bureau: "广州局", depot: "广州动车段",
              carriage: "02", seat: "08D", mileage: "139", speed: "200",
              date: DateComponents(year: 2026, month: 2, day: 14, hour: 13, minute: 40), hours: 1.3),
+        make("G80", "CR400BF-Z-3124", "香港西九龙", "北京西", bureau: "北京局", depot: "北京动车段",
+             carriage: "01", seat: "02F", mileage: "2440", speed: "350",
+             date: DateComponents(year: 2026, month: 2, day: 10, hour: 11, minute: 20), hours: 8.3),
+        make("G79", "CR400BF-Z-3124", "北京西", "香港西九龙", bureau: "北京局", depot: "北京动车段",
+             carriage: "16", seat: "11A", mileage: "2440", speed: "350",
+             date: DateComponents(year: 2026, month: 1, day: 30, hour: 10, minute: 0), hours: 8.2),
+        make("G2963", "CR400AF-S-1064", "深圳北", "成都东", bureau: "成都局", depot: "成都动车段",
+             carriage: "08", seat: "07C", mileage: "1607", speed: "300",
+             date: DateComponents(year: 2026, month: 1, day: 18, hour: 8, minute: 30), hours: 7.5),
+        make("D728", "CR200J-5021", "深圳", "北京丰台", bureau: "北京局", depot: "北京车辆段",
+             carriage: "11", seat: "03下", mileage: "2372", speed: "160",
+             date: DateComponents(year: 2026, month: 1, day: 5, hour: 19, minute: 40), hours: 22),
+        make("G6021", "CR400AF-2033", "深圳北", "长沙南", bureau: "广州局", depot: "长沙动车段",
+             carriage: "03", seat: "10B", mileage: "809", speed: "300",
+             date: DateComponents(year: 2025, month: 12, day: 21, hour: 15, minute: 8), hours: 3.2),
+        make("C7108", "CRH6A-0622", "深圳", "广州东", bureau: "广州局", depot: "广州动车段",
+             carriage: "05", seat: "16A", mileage: "139", speed: "200",
+             date: DateComponents(year: 2025, month: 12, day: 7, hour: 17, minute: 22), hours: 1.3),
+        make("G5601", "CR400AF-2211", "深圳北", "福田", bureau: "广州局", depot: "广州动车段",
+             carriage: "06", seat: "01F", mileage: "9", speed: "200",
+             date: DateComponents(year: 2025, month: 11, day: 16, hour: 10, minute: 2), hours: 0.2),
     ]
 }()
 
@@ -194,8 +215,8 @@ private struct FullJourneyDemo: View {
     /// 5 详情(滚到钱包+按下) / 6 卡片升起 / 7 卡片入钱包 / 8 完成勾 / 9 统计 / 10 收起重播
     @State private var step = 0
     @State private var demoStore = DataStore()
-    /// 统计页专用 store：进入统计阶段时才注入数据，配合 numericText 做从 0 增长动画
-    @State private var aboutStore = DataStore()
+    /// 统计数字增长进度（0→1），每轮循环重置，配合 AboutView.demoProgress 从 0 增长
+    @State private var statsProgress: Double = 0
     /// 表单填入进度（TripEditView 分区依次显示）
     @State private var formReveal = 0
     /// 虚拟手指：可见性、位置（舞台内绝对 pt，与内容坐标系一致）、按压态
@@ -294,8 +315,8 @@ private struct FullJourneyDemo: View {
                     // 真实统计页
                     ZStack(alignment: .top) {
                         Color(.systemGroupedBackground)
-                        AboutView(hideNavigationBar: true)
-                            .environment(aboutStore)
+                        AboutView(hideNavigationBar: true, demoProgress: statsProgress)
+                            .environment(demoStore)
                             .ignoresSafeArea(.container, edges: .top)
                             .disabled(true)
                             .allowsHitTesting(false)
@@ -417,6 +438,7 @@ private struct FullJourneyDemo: View {
             formOffset = 0
             detailOffset = 0
             formReveal = 0
+            withAnimation(.none) { statsProgress = 0 }
             withAnimation(.easeInOut(duration: 0.25)) { step = 0 }
             try? await Task.sleep(for: .seconds(2.2))
 
@@ -486,9 +508,7 @@ private struct FullJourneyDemo: View {
             // 统计：进入后数字从 0 增长
             withAnimation(.easeInOut(duration: 0.35)) { step = 9 }
             try? await Task.sleep(for: .seconds(0.6))
-            withAnimation(.easeOut(duration: 1.2)) {
-                aboutStore.seedForTutorial(tutorialDemoLogs)
-            }
+            withAnimation(.easeOut(duration: 1.2)) { statsProgress = 1 }
             try? await Task.sleep(for: .seconds(2.2))
             withAnimation(.easeOut(duration: 0.3)) { step = 10 }
             try? await Task.sleep(for: .seconds(0.5))
@@ -506,8 +526,6 @@ private struct ScannerMock: View {
 
     var body: some View {
         ZStack {
-            Color.white
-
             Text("CR400AF-2186")
                 .font(.title2)
                 .bold()
@@ -519,6 +537,7 @@ private struct ScannerMock: View {
                 .stroke(locked ? Color.green : Color(.systemGray2), lineWidth: 2)
                 .frame(width: locked ? 240 : 300, height: locked ? 96 : 130)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(20)
         .onAppear { if active { play() } }
         .onChange(of: active) { _, newValue in

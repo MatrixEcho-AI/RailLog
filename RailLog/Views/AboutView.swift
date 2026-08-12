@@ -4,6 +4,8 @@ struct AboutView: View {
     @Environment(DataStore.self) private var store
     /// 教程演示用：隐藏自带导航大标题
     var hideNavigationBar = false
+    /// 教程演示用：0~1，统计数字按比例从 0 增长；默认 1（正常显示）
+    var demoProgress: Double = 1
     @State private var showGameCenter = false
     private var totalTrips: Int {
         store.logs.filter { !$0.isDraft }.count
@@ -14,7 +16,7 @@ struct AboutView: View {
     }
 
     private var totalDurationFormatted: String {
-        let total = totalDuration
+        let total = totalDuration * demoProgress
         let hours = Int(total) / 3600
         let minutes = (Int(total) % 3600) / 60
         if hours > 0 {
@@ -22,6 +24,12 @@ struct AboutView: View {
         }
         return "\(minutes) 分钟"
     }
+
+    /// 以下均为 demoProgress 缩放后的演示值（生产 demoProgress=1，数值不变）
+    private var displayTrips: Int { Int((Double(totalTrips) * demoProgress).rounded()) }
+    private var displayUnlockedCount: Int { Int((Double(unlockedModelCodes.count) * demoProgress).rounded()) }
+    private var displayStationCount: Int { Int((Double(stationVisitCounts.count) * demoProgress).rounded()) }
+    private var displayModelProgress: Double { modelProgress * demoProgress }
 
     private var unlockedModelCodes: Set<String> {
         let emuNumbers = store.logs.map { $0.emuNumber }.filter { !$0.isEmpty }
@@ -63,7 +71,7 @@ struct AboutView: View {
                     HStack {
                         Label("运转次数", systemImage: "tram")
                         Spacer()
-                        Text("\(totalTrips) 次")
+                        Text("\(displayTrips) 次")
                             .foregroundStyle(.secondary)
                             .contentTransition(.numericText())
                     }
@@ -96,12 +104,12 @@ struct AboutView: View {
                                     Text("车型统计")
                                         .font(.subheadline.weight(.medium))
                                     Spacer()
-                                    Text("\(unlockedModelCodes.count)/\(trainModels.count)")
+                                    Text("\(displayUnlockedCount)/\(trainModels.count)")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                         .contentTransition(.numericText())
                                 }
-                                ProgressView(value: modelProgress)
+                                ProgressView(value: displayModelProgress)
                                     .tint(.blue)
                             }
                         }
@@ -118,7 +126,7 @@ struct AboutView: View {
                             Text("车站统计")
                                 .font(.subheadline.weight(.medium))
                             Spacer()
-                            Text("\(stationVisitCounts.count) 个车站")
+                            Text("\(displayStationCount) 个车站")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                                 .contentTransition(.numericText())
