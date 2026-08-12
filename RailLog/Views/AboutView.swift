@@ -65,12 +65,14 @@ struct AboutView: View {
                         Spacer()
                         Text("\(totalTrips) 次")
                             .foregroundStyle(.secondary)
+                            .contentTransition(.numericText())
                     }
                     HStack {
                         Label("运转时长", systemImage: "hourglass")
                         Spacer()
                         Text(totalDurationFormatted)
                             .foregroundStyle(.secondary)
+                            .contentTransition(.numericText())
                     }
                 } header: {
                     Text("运转统计")
@@ -97,6 +99,7 @@ struct AboutView: View {
                                     Text("\(unlockedModelCodes.count)/\(trainModels.count)")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
+                                        .contentTransition(.numericText())
                                 }
                                 ProgressView(value: modelProgress)
                                     .tint(.blue)
@@ -118,6 +121,7 @@ struct AboutView: View {
                             Text("\(stationVisitCounts.count) 个车站")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                                .contentTransition(.numericText())
                         }
                     }
                 }

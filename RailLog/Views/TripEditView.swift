@@ -4,9 +4,10 @@ struct TripEditView: View {
     @Environment(DataStore.self) private var store
     @Environment(\.dismiss) private var dismiss
 
-    init(draft: TripLog) {
+    init(draft: TripLog, revealCount: Int = .max) {
         _log = State(initialValue: draft)
         _isDraftMode = State(initialValue: draft.isDraft)
+        self.revealCount = revealCount
     }
 
     init(existingLog: TripLog) {
@@ -23,6 +24,9 @@ struct TripEditView: View {
     @State private var reVerifying = false
 
     private let maxTripDuration: TimeInterval = 48 * 3600
+
+    /// 教程演示用：按分区索引依次显示（填入动画）；默认全部显示
+    var revealCount: Int = .max
 
     private var canEditStationTime: Bool { isDraftMode }
 
@@ -157,6 +161,7 @@ struct TripEditView: View {
                 }
                 .padding(.vertical, 4)
             }
+            .opacity(revealCount > 0 ? 1 : 0)
 
             // MARK: - 运转信息
             Section("运转信息") {
@@ -211,6 +216,7 @@ struct TripEditView: View {
                         .lineLimit(2...5)
                 }
             }
+            .opacity(revealCount > 1 ? 1 : 0)
 
             // MARK: - 站点与时间
             Section {
@@ -280,6 +286,7 @@ struct TripEditView: View {
                     .padding(.vertical, 4)
                 }
             }
+            .opacity(revealCount > 2 ? 1 : 0)
 
             // MARK: - 保存
             Section {
@@ -339,6 +346,7 @@ struct TripEditView: View {
                     .disabled(!canSaveAsDraft)
                 }
             }
+            .opacity(revealCount > 3 ? 1 : 0)
         }
         .navigationTitle(isDraftMode ? "填写运转" : "编辑运转")
         .navigationBarTitleDisplayMode(.inline)

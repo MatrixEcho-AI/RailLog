@@ -112,6 +112,7 @@ struct SafetyEducationView: View {
 private let tutorialDemoLog: TripLog = {
     var log = TripLog()
     log.isDraft = false
+    log.isFavorite = true
     log.trainNumber = "G6525"
     log.emuNumber = "CR400AF-2186"
     log.carriage = "04"
@@ -193,6 +194,10 @@ private struct FullJourneyDemo: View {
     /// 5 详情(滚到钱包+按下) / 6 卡片升起 / 7 卡片入钱包 / 8 完成勾 / 9 统计 / 10 收起重播
     @State private var step = 0
     @State private var demoStore = DataStore()
+    /// 统计页专用 store：进入统计阶段时才注入数据，配合 numericText 做从 0 增长动画
+    @State private var aboutStore = DataStore()
+    /// 表单填入进度（TripEditView 分区依次显示）
+    @State private var formReveal = 0
     /// 虚拟手指：可见性、位置（舞台内绝对 pt，与内容坐标系一致）、按压态
     @State private var fingerVisible = false
     @State private var fingerY: CGFloat = 500
@@ -247,7 +252,7 @@ private struct FullJourneyDemo: View {
                     // 真实填写页（草稿形态，按钮为"完成运转"）；step 2 整体上移露出底部按钮
                     ZStack(alignment: .top) {
                         Color(.systemGroupedBackground)
-                        TripEditView(draft: tutorialDemoDraft)
+                        TripEditView(draft: tutorialDemoDraft, revealCount: formReveal)
                             .environment(demoStore)
                             .disabled(true)
                             .allowsHitTesting(false)
@@ -290,7 +295,7 @@ private struct FullJourneyDemo: View {
                     ZStack(alignment: .top) {
                         Color(.systemGroupedBackground)
                         AboutView(hideNavigationBar: true)
-                            .environment(demoStore)
+                            .environment(aboutStore)
                             .ignoresSafeArea(.container, edges: .top)
                             .disabled(true)
                             .allowsHitTesting(false)
@@ -411,12 +416,18 @@ private struct FullJourneyDemo: View {
             // 扫描录入
             formOffset = 0
             detailOffset = 0
+            formReveal = 0
             withAnimation(.easeInOut(duration: 0.25)) { step = 0 }
             try? await Task.sleep(for: .seconds(2.2))
 
-            // 填写：分段拖两次（每段手指位移=内容滚动量）→ 落到"完成运转"上按压
+            // 填写：先逐区填入信息 → 分段拖两次 → 落到"完成运转"上按压
             withAnimation(.easeInOut(duration: 0.35)) { step = 1 }
             try? await Task.sleep(for: .seconds(0.5))
+            for i in 1...4 {
+                withAnimation(.easeOut(duration: 0.3)) { formReveal = i }
+                try? await Task.sleep(for: .seconds(0.45))
+            }
+            try? await Task.sleep(for: .seconds(0.3))
             showFinger(at: 560)
             try? await Task.sleep(for: .seconds(0.6))
             withAnimation(.easeInOut(duration: 0.5)) {
@@ -435,17 +446,17 @@ private struct FullJourneyDemo: View {
             await tap()
             hideFinger()
 
-            // 运转列表：点第一行
+            // 运转列表：先停顿展示 → 点第一行
             withAnimation(.easeInOut(duration: 0.35)) { step = 3 }
-            try? await Task.sleep(for: .seconds(0.5))
+            try? await Task.sleep(for: .seconds(1.3))
             showFinger(at: listFirstRowY)
             try? await Task.sleep(for: .seconds(0.6))
             await tap()
             hideFinger()
 
-            // 运转详情：分段拖两次 → 落到"添加到钱包"上按压
+            // 运转详情：先停顿展示 → 分段拖两次 → 落到"添加到钱包"上按压
             withAnimation(.easeInOut(duration: 0.35)) { step = 4 }
-            try? await Task.sleep(for: .seconds(0.5))
+            try? await Task.sleep(for: .seconds(1.3))
             showFinger(at: 560)
             try? await Task.sleep(for: .seconds(0.6))
             withAnimation(.easeInOut(duration: 0.5)) {
@@ -472,20 +483,26 @@ private struct FullJourneyDemo: View {
             withAnimation(.easeOut(duration: 0.25)) { step = 8 }
             try? await Task.sleep(for: .seconds(1.4))
 
-            // 统计
+            // 统计：进入后数字从 0 增长
             withAnimation(.easeInOut(duration: 0.35)) { step = 9 }
-            try? await Task.sleep(for: .seconds(2.6))
+            try? await Task.sleep(for: .seconds(0.6))
+            withAnimation(.easeOut(duration: 1.2)) {
+                aboutStore.seedForTutorial(tutorialDemoLogs)
+            }
+            try? await Task.sleep(for: .seconds(2.2))
             withAnimation(.easeOut(duration: 0.3)) { step = 10 }
             try? await Task.sleep(for: .seconds(0.5))
         }
     }
 }
 
-/// 扫描画面复刻（相机页依赖摄像头无法直接复用；白底、扫描线往复）
-/// 常驻视图：repeatForever 动画在不可见后会被系统停掉，用 active 显式重启
+/// 扫描画面复刻（相机页依赖摄像头无法直接复用；白底）
+/// 动画：编号由模糊变清晰（对焦）→ 取景框收缩锁定（变绿）。
+/// 常驻视图，用 active 显式重置播放。
 private struct ScannerMock: View {
     var active: Bool = true
-    @State private var sweep = false
+    @State private var blurred = true
+    @State private var locked = false
 
     var body: some View {
         ZStack {
@@ -496,33 +513,31 @@ private struct ScannerMock: View {
                 .bold()
                 .fontDesign(.monospaced)
                 .foregroundStyle(.primary.opacity(0.85))
+                .blur(radius: blurred ? 14 : 0)
 
             RoundedRectangle(cornerRadius: 12)
-                .stroke(Color(.systemGray2), lineWidth: 2)
-                .frame(width: 240, height: 96)
-
-            Rectangle()
-                .fill(Color.green)
-                .frame(width: 224, height: 2)
-                .shadow(color: .green, radius: 4)
-                .offset(y: sweep ? 40 : -40)
+                .stroke(locked ? Color.green : Color(.systemGray2), lineWidth: 2)
+                .frame(width: locked ? 240 : 300, height: locked ? 96 : 130)
         }
         .padding(20)
-        .onAppear { if active { startSweep() } }
+        .onAppear { if active { play() } }
         .onChange(of: active) { _, newValue in
-            if newValue { startSweep() } else { stopSweep() }
+            if newValue { play() } else { reset() }
         }
     }
 
-    private func startSweep() {
-        sweep = false
-        withAnimation(.linear(duration: 0.8).repeatForever(autoreverses: true)) {
-            sweep = true
-        }
+    private func play() {
+        blurred = true
+        locked = false
+        withAnimation(.easeOut(duration: 0.9)) { blurred = false }
+        withAnimation(.spring(duration: 0.45).delay(1.0)) { locked = true }
     }
 
-    private func stopSweep() {
-        withAnimation(.linear(duration: 0.2)) { sweep = false }
+    private func reset() {
+        withAnimation(.linear(duration: 0.15)) {
+            blurred = true
+            locked = false
+        }
     }
 }
 
