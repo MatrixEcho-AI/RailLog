@@ -196,6 +196,8 @@ final class CloudSyncService {
         record["seat"] = log.seat
         record["mileage"] = log.mileage
         record["maxSpeed"] = log.maxSpeed
+        record["ticketPrice"] = log.ticketPrice
+        record["ticketPriceIsPoints"] = log.ticketPriceIsPoints ? 1 : 0
         record["bureau"] = log.bureau
         record["depot"] = log.depot
         record["originStation"] = log.originStation
@@ -231,6 +233,8 @@ final class CloudSyncService {
         log.seat = record["seat"] as? String ?? ""
         log.mileage = record["mileage"] as? String ?? ""
         log.maxSpeed = record["maxSpeed"] as? String ?? ""
+        log.ticketPrice = record["ticketPrice"] as? String ?? ""
+        log.ticketPriceIsPoints = (record["ticketPriceIsPoints"] as? Int64) == 1
         log.bureau = record["bureau"] as? String ?? ""
         log.depot = record["depot"] as? String ?? ""
         log.originStation = record["originStation"] as? String ?? ""

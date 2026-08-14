@@ -185,6 +185,25 @@ struct TripEditView: View {
                             }
                         }
                 }
+                LabeledContent("票价") {
+                    HStack(spacing: 8) {
+                        TextField("选填", text: $log.ticketPrice)
+                            .multilineTextAlignment(.trailing)
+                            .keyboardType(.decimalPad)
+                            .onChange(of: log.ticketPrice) { _, newValue in
+                                if let v = Double(newValue), v > 100_000 {
+                                    log.ticketPrice = "100000"
+                                }
+                            }
+                        Picker("单位", selection: $log.ticketPriceIsPoints) {
+                            Text("元").tag(false)
+                            Text("积分").tag(true)
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.segmented)
+                        .frame(width: 100)
+                    }
+                }
 
                 Picker("担当路局", selection: $selectedBureau) {
                     Text("未选择").tag("")

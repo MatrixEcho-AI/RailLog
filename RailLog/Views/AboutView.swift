@@ -63,6 +63,57 @@ struct AboutView: View {
         return counts.map { ($0.key, $0.value) }.sorted { $0.1 > $1.1 }
     }
 
+    /// 车票花费合计：人民币（元）与积分（分）分开累计
+    private var ticketTotals: (rmb: Double, points: Double) {
+        var rmb = 0.0
+        var points = 0.0
+        for log in store.logs where !log.isDraft {
+            guard let value = Double(log.ticketPrice), value > 0 else { continue }
+            if log.ticketPriceIsPoints {
+                points += value
+            } else {
+                rmb += value
+            }
+        }
+        return (rmb, points)
+    }
+
+    /// 折合总花费（元，100 积分 = 1 元），随 demoProgress 从 0 增长
+    private var displayTicketCostYuan: Double {
+        let totals = ticketTotals
+        return (totals.rmb + totals.points / 100) * demoProgress
+    }
+
+    /// 入口行的占比条：人民币（蓝）+ 积分（橙）堆叠，样式与车型统计的 ProgressView 一致
+    ///（细胶囊条、纯色填充、灰底轨道）；总宽随 demoProgress 增长（教程动画），无数据时只显示灰底轨道
+    private var ticketProportionBar: some View {
+        let totals = ticketTotals
+        let totalYuan = totals.rmb + totals.points / 100
+        let rmbFrac = totalYuan > 0 ? totals.rmb / totalYuan : 0
+        return GeometryReader { geo in
+            let width = geo.size.width * demoProgress
+            let rmbWidth = totals.rmb > 0 && width > 0 ? max(4, width * rmbFrac) : 0
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(Color(.systemGray5))
+                HStack(spacing: 0) {
+                    if totals.rmb > 0 {
+                        Rectangle()
+                            .fill(.blue)
+                            .frame(width: rmbWidth)
+                    }
+                    if totals.points > 0 {
+                        Rectangle()
+                            .fill(.orange)
+                            .frame(width: max(0, width - rmbWidth))
+                    }
+                }
+                .clipShape(Capsule())
+            }
+        }
+        .frame(height: 4)
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -88,6 +139,29 @@ struct AboutView: View {
 
                 // 统计入口
                 Section {
+                    NavigationLink {
+                        TicketStatsView(rmbTotal: ticketTotals.rmb, pointsTotal: ticketTotals.points)
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: "ticket.fill")
+                                .font(.title3)
+                                .foregroundStyle(.blue)
+                                .frame(width: 32)
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack {
+                                    Text("车票统计")
+                                        .font(.subheadline.weight(.medium))
+                                    Spacer()
+                                    Text("¥\(TicketStatsView.yuanText(displayTicketCostYuan))")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .contentTransition(.numericText())
+                                }
+                                ticketProportionBar
+                            }
+                        }
+                    }
+
                     NavigationLink {
                         ModelUnlockView(
                             unlockedModelCodes: unlockedModelCodes,

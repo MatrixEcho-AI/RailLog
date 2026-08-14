@@ -244,7 +244,7 @@ final class DataStore {
             "id", "车次", "动车组编号", "车厢", "座位",
             "始发站", "出发站", "到达站", "终到站",
             "始发时间", "出发时间", "到达时间", "终到时间",
-            "运转里程(km)", "最高时速(km/h)", "担当路局", "担当段",
+            "运转里程(km)", "最高时速(km/h)", "票价", "票价单位", "担当路局", "担当段",
             "运转时长", "备注", "收藏", "记录时间", "在途验证", "草稿"
         ]
 
@@ -274,6 +274,8 @@ final class DataStore {
                 dateFormatter(log.destinationTime),
                 csvEscape(log.mileage),
                 csvEscape(log.maxSpeed),
+                csvEscape(log.ticketPrice),
+                log.ticketPrice.isEmpty ? "" : (log.ticketPriceIsPoints ? "积分" : "元"),
                 csvEscape(log.bureau),
                 csvEscape(log.depot),
                 csvEscape(log.durationFormatted),

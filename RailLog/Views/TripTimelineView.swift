@@ -212,6 +212,9 @@ struct TripTimelineView: View {
                 if !log.durationFormatted.isEmpty {
                     trainInfoLine(icon: "clock", weight: .bold, value: log.durationFormatted, navigable: false)
                 }
+                if let priceText = log.ticketPriceText {
+                    trainInfoLine(icon: "yensign.circle", weight: .bold, value: priceText, navigable: false)
+                }
             }
             .padding(.leading, 48) // 时间列右缘的 2/3 处
             .padding(.vertical, 4)
@@ -224,6 +227,7 @@ struct TripTimelineView: View {
         !log.trainNumber.isEmpty || !log.emuNumber.isEmpty
             || !log.carriage.isEmpty || !log.seat.isEmpty
             || !log.durationFormatted.isEmpty
+            || !log.ticketPrice.isEmpty
     }
 
     private func trainInfoLine(icon: String? = nil, weight: Font.Weight = .regular, bold: Bool = false, value: String, navigable: Bool) -> some View {

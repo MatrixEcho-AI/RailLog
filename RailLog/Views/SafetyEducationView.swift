@@ -123,6 +123,7 @@ private let tutorialDemoLog: TripLog = {
     log.depot = "广州动车段"
     log.mileage = "39"
     log.maxSpeed = "250"
+    log.ticketPrice = "75"
     log.verifiedOnRailway = true
     let dep = Calendar.current.date(from: DateComponents(year: 2026, month: 3, day: 17, hour: 14, minute: 18))!
     log.departureTime = dep
@@ -141,7 +142,8 @@ private var tutorialDemoDraft: TripLog {
 private let tutorialDemoLogs: [TripLog] = {
     func make(_ train: String, _ emu: String, _ dep: String, _ arr: String,
               bureau: String, depot: String, carriage: String, seat: String,
-              mileage: String, speed: String, date: DateComponents, hours: Double) -> TripLog {
+              mileage: String, speed: String, price: String, isPoints: Bool = false,
+              date: DateComponents, hours: Double) -> TripLog {
         var log = TripLog()
         log.isDraft = false
         log.trainNumber = train
@@ -154,6 +156,8 @@ private let tutorialDemoLogs: [TripLog] = {
         log.depot = depot
         log.mileage = mileage
         log.maxSpeed = speed
+        log.ticketPrice = price
+        log.ticketPriceIsPoints = isPoints
         log.verifiedOnRailway = true
         let start = Calendar.current.date(from: date)!
         log.departureTime = start
@@ -163,37 +167,37 @@ private let tutorialDemoLogs: [TripLog] = {
     return [
         tutorialDemoLog,
         make("G100", "CR400BF-3091", "香港西九龙", "深圳北", bureau: "广州局", depot: "广州动车段",
-             carriage: "07", seat: "12F", mileage: "39", speed: "250",
+             carriage: "07", seat: "12F", mileage: "39", speed: "250", price: "75",
              date: DateComponents(year: 2026, month: 3, day: 15, hour: 9, minute: 5), hours: 0.4),
         make("G81", "CR400AF-2186", "北京南", "上海虹桥", bureau: "北京局", depot: "北京动车段",
-             carriage: "04", seat: "05C", mileage: "1318", speed: "350",
+             carriage: "04", seat: "05C", mileage: "1318", speed: "350", price: "553",
              date: DateComponents(year: 2026, month: 3, day: 8, hour: 9, minute: 0), hours: 4.5),
         make("D901", "CRH2E-2136", "深圳北", "上海虹桥", bureau: "上海局", depot: "上海动车段",
-             carriage: "09", seat: "22", mileage: "1623", speed: "250",
+             carriage: "09", seat: "22", mileage: "1623", speed: "250", price: "740",
              date: DateComponents(year: 2026, month: 2, day: 27, hour: 20, minute: 10), hours: 11),
         make("C7086", "CRH6A-0618", "广州东", "深圳", bureau: "广州局", depot: "广州动车段",
-             carriage: "02", seat: "08D", mileage: "139", speed: "200",
+             carriage: "02", seat: "08D", mileage: "139", speed: "200", price: "79.5",
              date: DateComponents(year: 2026, month: 2, day: 14, hour: 13, minute: 40), hours: 1.3),
         make("G80", "CR400BF-Z-3124", "香港西九龙", "北京西", bureau: "北京局", depot: "北京动车段",
-             carriage: "01", seat: "02F", mileage: "2440", speed: "350",
+             carriage: "01", seat: "02F", mileage: "2440", speed: "350", price: "1077",
              date: DateComponents(year: 2026, month: 2, day: 10, hour: 11, minute: 20), hours: 8.3),
         make("G79", "CR400BF-Z-3124", "北京西", "香港西九龙", bureau: "北京局", depot: "北京动车段",
-             carriage: "16", seat: "11A", mileage: "2440", speed: "350",
+             carriage: "16", seat: "11A", mileage: "2440", speed: "350", price: "1077",
              date: DateComponents(year: 2026, month: 1, day: 30, hour: 10, minute: 0), hours: 8.2),
         make("G2963", "CR400AF-S-1064", "深圳北", "成都东", bureau: "成都局", depot: "成都动车段",
-             carriage: "08", seat: "07C", mileage: "1607", speed: "300",
+             carriage: "08", seat: "07C", mileage: "1607", speed: "300", price: "846.5",
              date: DateComponents(year: 2026, month: 1, day: 18, hour: 8, minute: 30), hours: 7.5),
         make("D728", "CR200J-5021", "深圳", "北京丰台", bureau: "北京局", depot: "北京车辆段",
-             carriage: "11", seat: "03下", mileage: "2372", speed: "160",
+             carriage: "11", seat: "03下", mileage: "2372", speed: "160", price: "51900", isPoints: true,
              date: DateComponents(year: 2026, month: 1, day: 5, hour: 19, minute: 40), hours: 22),
         make("G6021", "CR400AF-2033", "深圳北", "长沙南", bureau: "广州局", depot: "长沙动车段",
-             carriage: "03", seat: "10B", mileage: "809", speed: "300",
+             carriage: "03", seat: "10B", mileage: "809", speed: "300", price: "388.5",
              date: DateComponents(year: 2025, month: 12, day: 21, hour: 15, minute: 8), hours: 3.2),
         make("C7108", "CRH6A-0622", "深圳", "广州东", bureau: "广州局", depot: "广州动车段",
-             carriage: "05", seat: "16A", mileage: "139", speed: "200",
+             carriage: "05", seat: "16A", mileage: "139", speed: "200", price: "7950", isPoints: true,
              date: DateComponents(year: 2025, month: 12, day: 7, hour: 17, minute: 22), hours: 1.3),
         make("G5601", "CR400AF-2211", "深圳北", "福田", bureau: "广州局", depot: "广州动车段",
-             carriage: "06", seat: "01F", mileage: "9", speed: "200",
+             carriage: "06", seat: "01F", mileage: "9", speed: "200", price: "900", isPoints: true,
              date: DateComponents(year: 2025, month: 11, day: 16, hour: 10, minute: 2), hours: 0.2),
     ]
 }()
@@ -228,11 +232,12 @@ private struct FullJourneyDemo: View {
     @State private var detailOffset: CGFloat = 0
 
     // MARK: 点击目标坐标（按模拟器截图实测校准；要调就改这几个数）
+    // 注：新增"票价"行后按行高估算调整（表单 +44pt、详情时间轴 +28pt），如手指落点偏移请截图复校
     private let formScroll: CGFloat = 710          // 表单滚动量（与下方 offset 一致）
-    private let formSaveButtonY: CGFloat = 1066    // "完成运转"按钮的内容 y
+    private let formSaveButtonY: CGFloat = 1110    // "完成运转"按钮的内容 y（票价行 +44）
     private let listFirstRowY: CGFloat = 102       // 列表第一行中心的内容 y
     private let detailScroll: CGFloat = 535        // 详情滚动量（与下方 offset 一致）
-    private let detailWalletY: CGFloat = 911       // "添加到钱包"按钮的内容 y
+    private let detailWalletY: CGFloat = 939       // "添加到钱包"按钮的内容 y（票价行 +28）
 
     private var header: (icon: String, title: String) {
         switch step {
